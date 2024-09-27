@@ -22,7 +22,7 @@ func (h handler) ServeHTTP(originalWriter http.ResponseWriter, originalRequest *
 		return
 	}
 
-	err := filter.Filter(originalRequest)
+	err := filter.Filter(originalWriter, originalRequest, h.db)
 	if err != nil {
 		log.Println(err)
 		return

@@ -1,17 +1,22 @@
 package macclients
 
 import (
+	"errors"
 	"log"
-	"os/exec"
-	"strings"
 	"net"
+	"os/exec"
 	"runtime"
+	"strings"
 )
 
-type client struct{
-	ip	net.IP
-	mac net.HardwareAddr
+type Client struct{
+	IP	net.IP
+	MAC net.HardwareAddr
 }
+
+var (
+	Clients = getMACTable()
+)
 
 func FixMacOSMACNotation(s string) string {
     var e int
@@ -47,7 +52,7 @@ func run_arp() (string, error) {
 	return string(stdout), err
 }
 
-func parse_arp_output(stdout string) (clients []client) {
+func parse_arp_output(stdout string) (clients []Client) {
 	lines := strings.Split(stdout, "\n")
 
 	for _, line := range lines {
@@ -62,11 +67,11 @@ func parse_arp_output(stdout string) (clients []client) {
 		}
 		mac, err := net.ParseMAC(strings.ToUpper(splited[3]))
 		if err != nil {
-			log.Println(err)
+			// log.Println(splited[1], err)
 		} else {
-			client := client{
-				ip: ip,
-				mac: mac,
+			client := Client{
+				IP: ip,
+				MAC: mac,
 			}
 			clients = append(clients, client)			
 		}
@@ -76,16 +81,37 @@ func parse_arp_output(stdout string) (clients []client) {
 	return clients
 }
 
-func GetMACTable() {
+func getMACTable() (clients []Client) {
 	stdout, err := run_arp()
 
 	if err != nil {
 		log.Println(err)
-		return
+		return nil
 	}
 
-	clients := parse_arp_output(stdout)
-	for _, client := range clients {
-		log.Println(client)
+	clients = parse_arp_output(stdout)
+
+	return clients
+}
+
+// Cache info
+// Run get mac table at start and then read in RAM
+func GetInfoFromIP(remoteAddr string) (client Client, err error) {
+	splited := strings.Split(remoteAddr, ":")
+	if len(splited) < 2 {
+		return client, errors.New("Error parsing IP")
 	}
+	ip := splited[0]
+	parsedIP := net.ParseIP(ip)
+	if parsedIP == nil {
+		return client, errors.New("IP parsing failed")
+	}
+
+	for _, client = range Clients {
+		if strings.Compare(client.IP.String(), ip) == 0 {
+			return client, nil
+		}
+	}
+
+	return client, errors.New("GetInfoFromIP: not found")
 }

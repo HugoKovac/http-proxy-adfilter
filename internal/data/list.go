@@ -9,9 +9,47 @@ import (
 	"os"
 	"sync"
 
+	macClients "gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/mac_clients"
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/types"
 )
 
+func EnsureClientExists(db *sql.DB, client macClients.Client) error {
+	// Convert MAC and IP to strings
+	macStr := client.MAC.String()
+	ipStr := client.IP.String()
+
+	// Check if the client already exists
+	var existingMAC string
+	log.Printf("Checking if client exists: MAC = %s, IP = %s\n", macStr, ipStr)
+
+	err := db.QueryRow("SELECT client_mac FROM client WHERE client_mac = $1", macStr).Scan(&existingMAC)
+
+	if err == sql.ErrNoRows {
+		// If not exists, insert the new client
+		_, err := db.Exec("INSERT INTO client (client_mac, ip) VALUES ($1, $2)", macStr, ipStr)
+		if err != nil {
+			return fmt.Errorf("failed to insert client: %w", err)
+		}
+		log.Printf("Inserted new client: %s\n", macStr)
+	} else if err != nil {
+		return fmt.Errorf("failed to query client: %w", err)
+	}
+
+	// Client exists or has been inserted successfully
+	return nil
+}
+
+
+func AppendCategoryToClient(db *sql.DB, clientMAC string, categoryName string) error {
+	// Insert the client-category association into the junction table
+	_, err := db.Exec("INSERT INTO client_category (client_mac, category_name) VALUES ($1, $2) ON CONFLICT DO NOTHING", clientMAC, categoryName)
+	if err != nil {
+		return fmt.Errorf("failed to associate client with category: %w", err)
+	}
+	// log.Printf("Successfully associated client %s with category %s\n", clientMAC, categoryName)
+
+	return nil
+}
 
 func ensureCategoryExists(db *sql.DB, categoryName, description string) (string, error) {
 	// Check if the category exists
@@ -55,6 +93,24 @@ func insertDomain(db *sql.DB, domainName, categoryName string) error {
 	}
 
 	return nil
+}
+
+func CheckClientDomain(db *sql.DB, clientMAC string, domainName string) (bool, error) {
+	query := `
+		SELECT EXISTS (
+			SELECT 1
+			FROM client_category cc
+			JOIN domain_category dc ON cc.category_name = dc.category_name
+			JOIN client c ON cc.client_mac = c.client_mac
+			WHERE c.client_mac = $1 AND dc.domain_name = $2
+		);
+	`
+	var exists bool
+	err := db.QueryRow(query, clientMAC, domainName).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }
 
 func fakeFetch() (data []types.DomainList, err error) {
@@ -102,7 +158,7 @@ func GetCategorizedDomainList(db *sql.DB) {
 				if err != nil {
 					log.Printf("Error inserting domain %s: %v\n", domain, err)
 				} else {
-					log.Printf("Successfully associated domain %s with category %s\n", domain, d.Name)
+					// log.Printf("Successfully associated domain %s with category %s\n", domain, d.Name)
 				}
 			}
 		}(d) 
