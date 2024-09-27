@@ -1,12 +1,12 @@
 package main
 
 import (
-	// "gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/data"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/data"
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/db"
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/proxy"
 )
@@ -17,12 +17,14 @@ func main(){
 
 
 	db := db.NewDatabase()
-	go proxy.ListenProxy()
+	go proxy.ListenProxy(db)
 	
 	err := db.Ping()
 	if err != nil {
 		log.Panic(err)
 	}
+
+	data.GetCategorizedDomainList(db)
 
 	<-sigs
 	db.Close()	

@@ -1,13 +1,16 @@
 package proxy
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
-	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/filter"
+
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/api"
+	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/filter"
 )
 
 type handler struct {
+	db *sql.DB
 }
 
 func (h handler) ServeHTTP(originalWriter http.ResponseWriter, originalRequest *http.Request) {
@@ -15,7 +18,7 @@ func (h handler) ServeHTTP(originalWriter http.ResponseWriter, originalRequest *
 	requestHandler := NewRequestHandler()
 
 	if originalRequest.Host == "localhost:8080"{
-		api.Handler(originalWriter, originalRequest)
+		api.Handler(originalWriter, originalRequest, h.db)
 		return
 	}
 
@@ -37,8 +40,8 @@ func (h handler) ServeHTTP(originalWriter http.ResponseWriter, originalRequest *
 	HeaderHandler.PostRequest(proxyResp, originalWriter)
 }
 
-func ListenProxy() {
-	h := handler{}
+func ListenProxy(db *sql.DB) {
+	h := handler{db}
 
 	log.Fatal(http.ListenAndServe("localhost:8080", h))
 }
