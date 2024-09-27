@@ -7,42 +7,51 @@ import (
 	"io"
 	"log"
 	"os"
+	"sync"
 
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/types"
 )
 
 
-func ensureCategoryExists(db *sql.DB, name, description string) (int, error) {
-	var categoryID int
-	err := db.QueryRow(`SELECT id FROM category WHERE name = $1`, name).Scan(&categoryID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			// Insert new category if it does not exist
-			err = db.QueryRow(
-				`INSERT INTO category (name, description) VALUES ($1, $2) RETURNING id`,
-				name, description,
-			).Scan(&categoryID)
-			if err != nil {
-				return 0, fmt.Errorf("could not insert category: %v", err)
-			}
-		} else {
-			return 0, fmt.Errorf("error fetching category: %v", err)
+func ensureCategoryExists(db *sql.DB, categoryName, description string) (string, error) {
+	// Check if the category exists
+	var existingDescription string
+	err := db.QueryRow("SELECT description FROM category WHERE category_name = $1", categoryName).Scan(&existingDescription)
+
+	if err == sql.ErrNoRows {
+		// If not exists, insert the new category
+		_, err := db.Exec("INSERT INTO category (category_name, description) VALUES ($1, $2)", categoryName, description)
+		if err != nil {
+			return "", fmt.Errorf("failed to insert category: %w", err)
 		}
+		log.Printf("Inserted new category: %s\n", categoryName)
+		return categoryName, nil
+	} else if err != nil {
+		return "", fmt.Errorf("failed to query category: %w", err)
 	}
-	return categoryID, nil
+
+	// If the category already exists, return the existing category name
+	return categoryName, nil
 }
 
-func insertDomain(db *sql.DB, domain string, categoryID int) error {
-	// Insert domain if it doesn't exist
-	_, err := db.Exec(`INSERT INTO domain (domain_name) VALUES ($1) ON CONFLICT (domain_name) DO NOTHING`, domain)
-	if err != nil {
-		return fmt.Errorf("could not insert domain: %v", err)
+func insertDomain(db *sql.DB, domainName, categoryName string) error {
+	// Check if the domain already exists
+	var existingDomain string
+	err := db.QueryRow("SELECT domain_name FROM domain WHERE domain_name = $1", domainName).Scan(&existingDomain)
+
+	if err == sql.ErrNoRows {
+		// If not exists, insert the new domain
+		_, err := db.Exec("INSERT INTO domain (domain_name) VALUES ($1)", domainName)
+		if err != nil {
+			return fmt.Errorf("failed to insert domain: %w", err)
+		}
+		log.Printf("Inserted new domain: %s\n", domainName)
 	}
 
-	// Associate the domain with the category
-	_, err = db.Exec(`INSERT INTO domain_category (domain_name, category_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, domain, categoryID)
+	// Now insert the domain-category association in the junction table
+	_, err = db.Exec("INSERT INTO domain_category (domain_name, category_name) VALUES ($1, $2) ON CONFLICT DO NOTHING", domainName, categoryName)
 	if err != nil {
-		return fmt.Errorf("could not associate domain with category: %v", err)
+		return fmt.Errorf("failed to associate domain with category: %w", err)
 	}
 
 	return nil
@@ -73,20 +82,31 @@ func GetCategorizedDomainList(db *sql.DB) {
 		log.Println(err)
 		return
 	}
-	for _, d := range domainLists {
-		categoryID, err := ensureCategoryExists(db, d.Name, d.Description)
-		if err != nil {
-			log.Printf("Error ensuring category exists: %v\n", err)
-			continue
-		}
+	
+	var wg sync.WaitGroup
 
-		for _, domain := range d.List {
-			err := insertDomain(db, domain, categoryID)
+	for _, d := range domainLists {
+		wg.Add(1)
+
+		go func(d types.DomainList) {
+			defer wg.Done()
+
+			categoryID, err := ensureCategoryExists(db, d.Name, d.Description)
 			if err != nil {
-				log.Printf("Error inserting domain %s: %v\n", domain, err)
-			} else {
-				log.Printf("Successfully associated domain %s with category %s\n", domain, d.Name)
+				log.Printf("Error ensuring category exists: %v\n", err)
+				return
 			}
-		}
+
+			for _, domain := range d.List {
+				err := insertDomain(db, domain, categoryID)
+				if err != nil {
+					log.Printf("Error inserting domain %s: %v\n", domain, err)
+				} else {
+					log.Printf("Successfully associated domain %s with category %s\n", domain, d.Name)
+				}
+			}
+		}(d) 
 	}
+
+	wg.Wait()
 }

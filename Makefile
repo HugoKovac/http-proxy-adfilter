@@ -12,6 +12,9 @@ build:
 migrate:
 	go run cmd/migration/main.go
 
+del_lists:
+	go run cmd/delete_lists/main.go
+
 db_up:
 	docker compose up -d
 

@@ -8,8 +8,7 @@ import (
 	"runtime"
 )
 
-type Client struct{
-	name string
+type client struct{
 	ip	net.IP
 	mac net.HardwareAddr
 }
@@ -48,7 +47,7 @@ func run_arp() (string, error) {
 	return string(stdout), err
 }
 
-func parse_arp_output(stdout string) (clients []Client) {
+func parse_arp_output(stdout string) (clients []client) {
 	lines := strings.Split(stdout, "\n")
 
 	for _, line := range lines {
@@ -65,8 +64,7 @@ func parse_arp_output(stdout string) (clients []Client) {
 		if err != nil {
 			log.Println(err)
 		} else {
-			client := Client{
-				name: "",
+			client := client{
 				ip: ip,
 				mac: mac,
 			}

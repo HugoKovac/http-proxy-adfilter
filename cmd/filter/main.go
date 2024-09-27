@@ -19,8 +19,7 @@ func main(){
 	db := db.NewDatabase()
 	go proxy.ListenProxy(db)
 	
-	err := db.Ping()
-	if err != nil {
+	if err := db.Ping(); err != nil {
 		log.Panic(err)
 	}
 

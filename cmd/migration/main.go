@@ -9,16 +9,20 @@ import (
 func main() {
 	db := db.NewDatabase()
 	
-	err := db.Ping()
-	if err != nil {
+	if err := db.Ping(); err != nil {
 		log.Panic(err)
 	}
 
 	createTables := `
+		-- Create the client table
+		CREATE TABLE client (
+			client_mac MACADDR PRIMARY KEY,  -- MAC addresses and Index
+			ip INET NOT NULL UNIQUE -- IPv4 support
+		);
+
 		-- Table for categories
 		CREATE TABLE category (
-			id SERIAL PRIMARY KEY,      -- Auto-incremented unique ID for each category
-			name VARCHAR(255) NOT NULL, -- Category name
+			category_name VARCHAR(255) PRIMARY KEY, -- Category name and Index
 			description TEXT            -- Category description
 		);
 
@@ -30,12 +34,20 @@ func main() {
 		-- Junction table for domain and category relationship (many-to-many)
 		CREATE TABLE domain_category (
 			domain_name VARCHAR(255),    -- Foreign key reference to domain
-			category_id INT,             -- Foreign key reference to category
-			PRIMARY KEY (domain_name, category_id),  -- Composite primary key for uniqueness
+			category_name VARCHAR(255),             -- Foreign key reference to category
+			PRIMARY KEY (domain_name, category_name),  -- Composite primary key for uniqueness
 			FOREIGN KEY (domain_name) REFERENCES domain(domain_name) ON DELETE CASCADE,
-			FOREIGN KEY (category_id) REFERENCES category(id) ON DELETE CASCADE
+			FOREIGN KEY (category_name) REFERENCES category(category_name) ON DELETE CASCADE
 		);
 
+		-- Create the junction table for client-category association
+		CREATE TABLE client_category (
+			client_mac MACADDR NOT NULL,
+			category_name VARCHAR(255) NOT NULL,
+			PRIMARY KEY (client_mac, category_name),
+			FOREIGN KEY (client_mac) REFERENCES client(client_mac) ON DELETE CASCADE,
+			FOREIGN KEY (category_name) REFERENCES category(category_name) ON DELETE CASCADE
+		);
 	`
 
 	result, err := db.Exec(createTables)
