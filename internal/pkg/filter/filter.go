@@ -15,11 +15,7 @@ func Filter(w http.ResponseWriter, r *http.Request, db *sql.DB) error {
 		http.Error(w, "Scheme not supported", http.StatusBadRequest)
 		return errors.New("Scheme not supported")
 	}
-	//TODO: Filter domain
-	// check if client is registered and has ip and domain blocked
 
-	// Get MAC address of r.Remote addr
-	// Get domain of r.RequestedHost
 	client, err := macClients.GetInfoFromIP(r.RemoteAddr)
 	if err != nil {
 		return err

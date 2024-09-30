@@ -7,3 +7,8 @@ type DomainList struct {
 	Description string	`json:"description"`
 	List []string		`json:"list"`
 }
+
+type CategoryList struct {
+	CategoryName string `json:category_name`
+	Description string `json:description`
+}

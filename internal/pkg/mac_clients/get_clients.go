@@ -94,8 +94,6 @@ func getMACTable() (clients []Client) {
 	return clients
 }
 
-// Cache info
-// Run get mac table at start and then read in RAM
 func GetInfoFromIP(remoteAddr string) (client Client, err error) {
 	splited := strings.Split(remoteAddr, ":")
 	if len(splited) < 2 {
@@ -113,5 +111,13 @@ func GetInfoFromIP(remoteAddr string) (client Client, err error) {
 		}
 	}
 
-	return client, errors.New("GetInfoFromIP: not found")
+	Clients = getMACTable()
+
+	for _, client = range Clients {
+		if strings.Compare(client.IP.String(), ip) == 0 {
+			return client, nil
+		}
+	}
+
+	return client, errors.New("GetInfoFromIP: not found for: " + ip)
 }

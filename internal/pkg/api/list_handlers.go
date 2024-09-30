@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"net/http"
 
@@ -9,18 +10,33 @@ import (
 	macClients "gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/mac_clients"
 )
 
-func getLists(w http.ResponseWriter, r *http.Request, db *sql.DB) {
-	/*
-		? How are the list stored (name, id, description, domains) | Pull a json and store it in db
-		Pull data from where it's stored and return it
-	*/
+func getCategoryLists(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+	list, err := data.GetCategoryLists(db);
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+	}
+
+	if err = json.NewEncoder(w).Encode(list); err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+	}
+	w.Header().Set("Content-Type", "application/json")
 }
 
 func getSubLists(w http.ResponseWriter, r *http.Request, db *sql.DB) {
-	/*
-		gest lists
-		return the name or id
-	*/
+	client, err := macClients.GetInfoFromIP(r.RemoteAddr)
+	if err != nil {
+		http.Error(w, "Getting client info: " + err.Error(), http.StatusInternalServerError)
+		return
+	}
+	list, err := data.GetSubscribedCategoryLists(db, client.MAC.String());
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+	}
+
+	if err = json.NewEncoder(w).Encode(list); err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+	}
+	w.Header().Set("Content-Type", "application/json")
 }
 
 func addSubList(w http.ResponseWriter, r *http.Request, db *sql.DB) {
@@ -53,9 +69,24 @@ func addSubList(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 }
 
 func delSubList(w http.ResponseWriter, r *http.Request, db *sql.DB) {
-	/*
-		del a list to client in db
-	*/
+	r.ParseForm()
+	category := r.FormValue("category")
+	if category == "" {
+		http.Error(w, "Expecting catgory parameter", http.StatusBadRequest)
+		return
+	}
+
+	client, err := macClients.GetInfoFromIP(r.RemoteAddr)
+	if err != nil {
+		http.Error(w, "Getting client info: " + err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err = data.DelSubscribtion(db, category, client.MAC.String()) ;err != nil {
+		log.Println(err)
+		http.Error(w, "", http.StatusBadRequest)
+		return
+	}
+
 }
 
 func Handler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
@@ -65,8 +96,8 @@ func Handler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	switch r.Method {
 	case "GET":
 		switch r.URL.Path {
-		case "/get_lists":
-			getLists(w, r, db)
+		case "/get_category_list":
+			getCategoryLists(w, r, db)
 		case "/get_sub_lists":
 			getSubLists(w, r, db)
 		default:

@@ -13,6 +13,34 @@ import (
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/types"
 )
 
+func GetSubscribedCategoryLists(db *sql.DB, mac string) (list []types.CategoryList, err error) {
+	rows, err := db.Query(`SELECT cat.*
+		FROM public.client c
+		JOIN client_category cc on c.client_mac = cc.client_mac
+		JOIN category cat on cc.category_name = cat.category_name
+		WHERE c.client_mac = $1`, mac)
+	if err != nil {
+		return list, err
+	}
+	for rows.Next() {
+		var index types.CategoryList
+
+		err := rows.Scan(&index.CategoryName, &index.Description)
+		if err != nil {
+			log.Println(err)
+		}
+		list = append(list, index)
+	} 
+	return list, nil
+	
+}
+
+func DelSubscribtion(db *sql.DB, category string, mac string) (err error){
+	_, err = db.Exec(`DELETE FROM public.client_category
+		WHERE client_mac = $1 AND category_name = $2`, mac, category);
+	return err
+}
+
 func EnsureClientExists(db *sql.DB, client macClients.Client) error {
 	// Convert MAC and IP to strings
 	macStr := client.MAC.String()
@@ -37,6 +65,23 @@ func EnsureClientExists(db *sql.DB, client macClients.Client) error {
 
 	// Client exists or has been inserted successfully
 	return nil
+}
+
+func GetCategoryLists(db *sql.DB) (list []types.CategoryList, err error) {
+	rows, err := db.Query("SELECT * FROM public.category")
+	if err != nil {
+		return list, err
+	}
+	for rows.Next() {
+		var index types.CategoryList
+
+		err := rows.Scan(&index.CategoryName, &index.Description)
+		if err != nil {
+			log.Println(err)
+		}
+		list = append(list, index)
+	} 
+	return list, nil
 }
 
 

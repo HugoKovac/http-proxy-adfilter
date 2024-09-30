@@ -28,3 +28,9 @@ func main(){
 	<-sigs
 	db.Close()	
 }
+
+/*
+	curl -v --interface en0 -x http://localhost:8080 http://www.google.com
+	curl -v --interface en0 -X POST http://localhost:8080/add_sub_list --data category=gambling
+	curl -v --interface en0 -x http://localhost:8080 http://stake.com
+*/
