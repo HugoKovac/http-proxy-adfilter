@@ -17,7 +17,9 @@ func (h handler) ServeHTTP(originalWriter http.ResponseWriter, originalRequest *
 	HeaderHandler := NewHeaderHandler()
 	requestHandler := NewRequestHandler()
 
-	if originalRequest.Host == "localhost:8080"{
+	log.Println(originalRequest.RequestURI)
+	if originalRequest.RequestURI[0] == '/' {
+		log.Println("Handler")
 		api.Handler(originalWriter, originalRequest, h.db)
 		return
 	}

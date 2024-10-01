@@ -40,9 +40,6 @@ func getSubLists(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 }
 
 func addSubList(w http.ResponseWriter, r *http.Request, db *sql.DB) {
-	/*
-		check if client exist, if not create and then add category to client
-	*/
 	r.ParseForm()
 	category := r.FormValue("category")
 	if category == "" {

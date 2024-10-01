@@ -15,10 +15,10 @@ import (
 
 func GetSubscribedCategoryLists(db *sql.DB, mac string) (list []types.CategoryList, err error) {
 	rows, err := db.Query(`SELECT cat.*
-		FROM public.client c
+		FROM client c
 		JOIN client_category cc on c.client_mac = cc.client_mac
 		JOIN category cat on cc.category_name = cat.category_name
-		WHERE c.client_mac = $1`, mac)
+		WHERE c.client_mac = ?`, mac)
 	if err != nil {
 		return list, err
 	}
@@ -36,8 +36,8 @@ func GetSubscribedCategoryLists(db *sql.DB, mac string) (list []types.CategoryLi
 }
 
 func DelSubscribtion(db *sql.DB, category string, mac string) (err error){
-	_, err = db.Exec(`DELETE FROM public.client_category
-		WHERE client_mac = $1 AND category_name = $2`, mac, category);
+	_, err = db.Exec(`DELETE FROM client_category
+		WHERE client_mac = ? AND category_name = ?`, mac, category);
 	return err
 }
 
@@ -50,11 +50,11 @@ func EnsureClientExists(db *sql.DB, client macClients.Client) error {
 	var existingMAC string
 	log.Printf("Checking if client exists: MAC = %s, IP = %s\n", macStr, ipStr)
 
-	err := db.QueryRow("SELECT client_mac FROM client WHERE client_mac = $1", macStr).Scan(&existingMAC)
+	err := db.QueryRow("SELECT client_mac FROM client WHERE client_mac = ?", macStr).Scan(&existingMAC)
 
 	if err == sql.ErrNoRows {
 		// If not exists, insert the new client
-		_, err := db.Exec("INSERT INTO client (client_mac, ip) VALUES ($1, $2)", macStr, ipStr)
+		_, err := db.Exec("INSERT INTO client (client_mac, ip) VALUES (?, ?)", macStr, ipStr)
 		if err != nil {
 			return fmt.Errorf("failed to insert client: %w", err)
 		}
@@ -68,7 +68,7 @@ func EnsureClientExists(db *sql.DB, client macClients.Client) error {
 }
 
 func GetCategoryLists(db *sql.DB) (list []types.CategoryList, err error) {
-	rows, err := db.Query("SELECT * FROM public.category")
+	rows, err := db.Query("SELECT * FROM category")
 	if err != nil {
 		return list, err
 	}
@@ -87,7 +87,7 @@ func GetCategoryLists(db *sql.DB) (list []types.CategoryList, err error) {
 
 func AppendCategoryToClient(db *sql.DB, clientMAC string, categoryName string) error {
 	// Insert the client-category association into the junction table
-	_, err := db.Exec("INSERT INTO client_category (client_mac, category_name) VALUES ($1, $2) ON CONFLICT DO NOTHING", clientMAC, categoryName)
+	_, err := db.Exec("INSERT INTO client_category (client_mac, category_name) VALUES (?, ?) ON CONFLICT DO NOTHING", clientMAC, categoryName)
 	if err != nil {
 		return fmt.Errorf("failed to associate client with category: %w", err)
 	}
@@ -99,11 +99,11 @@ func AppendCategoryToClient(db *sql.DB, clientMAC string, categoryName string) e
 func ensureCategoryExists(db *sql.DB, categoryName, description string) (string, error) {
 	// Check if the category exists
 	var existingDescription string
-	err := db.QueryRow("SELECT description FROM category WHERE category_name = $1", categoryName).Scan(&existingDescription)
+	err := db.QueryRow("SELECT description FROM category WHERE category_name = ?", categoryName).Scan(&existingDescription)
 
 	if err == sql.ErrNoRows {
 		// If not exists, insert the new category
-		_, err := db.Exec("INSERT INTO category (category_name, description) VALUES ($1, $2)", categoryName, description)
+		_, err := db.Exec("INSERT INTO category (category_name, description) VALUES (?, ?)", categoryName, description)
 		if err != nil {
 			return "", fmt.Errorf("failed to insert category: %w", err)
 		}
@@ -117,22 +117,22 @@ func ensureCategoryExists(db *sql.DB, categoryName, description string) (string,
 	return categoryName, nil
 }
 
-func insertDomain(db *sql.DB, domainName, categoryName string) error {
+func insertDomain(txn *sql.Tx, domainName, categoryName string) error {
 	// Check if the domain already exists
 	var existingDomain string
-	err := db.QueryRow("SELECT domain_name FROM domain WHERE domain_name = $1", domainName).Scan(&existingDomain)
+	err := txn.QueryRow("SELECT domain_name FROM domain WHERE domain_name = ?", domainName).Scan(&existingDomain)
 
 	if err == sql.ErrNoRows {
 		// If not exists, insert the new domain
-		_, err := db.Exec("INSERT INTO domain (domain_name) VALUES ($1)", domainName)
+		_, err := txn.Exec("INSERT INTO domain (domain_name) VALUES (?)", domainName)
 		if err != nil {
+			txn.Rollback()
 			return fmt.Errorf("failed to insert domain: %w", err)
 		}
-		log.Printf("Inserted new domain: %s\n", domainName)
 	}
 
 	// Now insert the domain-category association in the junction table
-	_, err = db.Exec("INSERT INTO domain_category (domain_name, category_name) VALUES ($1, $2) ON CONFLICT DO NOTHING", domainName, categoryName)
+	_, err = txn.Exec("INSERT INTO domain_category (domain_name, category_name) VALUES (?, ?) ON CONFLICT DO NOTHING", domainName, categoryName)
 	if err != nil {
 		return fmt.Errorf("failed to associate domain with category: %w", err)
 	}
@@ -147,12 +147,14 @@ func CheckClientDomain(db *sql.DB, clientMAC string, domainName string) (bool, e
 			FROM client_category cc
 			JOIN domain_category dc ON cc.category_name = dc.category_name
 			JOIN client c ON cc.client_mac = c.client_mac
-			WHERE c.client_mac = $1 AND dc.domain_name = $2
+			WHERE c.client_mac = ? AND dc.domain_name = ?
 		);
 	`
 	var exists bool
+	log.Println(clientMAC, domainName)
 	err := db.QueryRow(query, clientMAC, domainName).Scan(&exists)
 	if err != nil {
+		log.Println("PSQLLITE ERROR")
 		return false, err
 	}
 	return exists, nil
@@ -198,14 +200,27 @@ func GetCategorizedDomainList(db *sql.DB) {
 				return
 			}
 
+			txn, err := db.Begin()
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
 			for _, domain := range d.List {
-				err := insertDomain(db, domain, categoryID)
+				err := insertDomain(txn, domain, categoryID)
 				if err != nil {
 					log.Printf("Error inserting domain %s: %v\n", domain, err)
 				} else {
 					// log.Printf("Successfully associated domain %s with category %s\n", domain, d.Name)
 				}
 			}
+
+			if err := txn.Commit(); err != nil {
+				log.Println(err)
+				return
+			}
+
+			log.Println("Successfully imported: ", d.Name)
 		}(d) 
 	}
 
