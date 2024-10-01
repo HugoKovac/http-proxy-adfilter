@@ -57,3 +57,10 @@ We want a:
 > Reading Complexity and Caching
 
 Hash table are prefered because we want to check domains for each of the request and we are waiting the results for each of them
+
+# Proxy HTTP Traffic
+## Glinet
+
+Here is how to proxy all the http traffic of a client to out proxy
+
+ `iptables -t nat -A PREROUTING -s 192.168.10.207 -p tcp --dport 80 -j REDIRECT --to-port 8888`

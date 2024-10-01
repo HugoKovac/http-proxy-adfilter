@@ -9,6 +9,11 @@ import (
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/filter"
 )
 
+const (
+	PORT = "8888"
+	HOST = "0.0.0.0"
+)
+
 type handler struct {
 	db *sql.DB
 }
@@ -17,8 +22,14 @@ func (h handler) ServeHTTP(originalWriter http.ResponseWriter, originalRequest *
 	HeaderHandler := NewHeaderHandler()
 	requestHandler := NewRequestHandler()
 
-	log.Println(originalRequest.RequestURI)
-	if originalRequest.RequestURI[0] == '/' {
+	originalRequest.URL.Scheme = "http"
+	originalRequest.URL.Host = originalRequest.Host
+	originalRequest.URL.Path = originalRequest.RequestURI
+	//TODO: Fill and check all URL vaiable like params
+
+	// log.Printf("%#v", originalRequest)
+	// log.Printf("%#v", originalRequest.URL)
+	if originalRequest.Host == "192.168.10.1" {
 		log.Println("Handler")
 		api.Handler(originalWriter, originalRequest, h.db)
 		return
@@ -45,5 +56,5 @@ func (h handler) ServeHTTP(originalWriter http.ResponseWriter, originalRequest *
 func ListenProxy(db *sql.DB) {
 	h := handler{db}
 
-	log.Fatal(http.ListenAndServe("localhost:8080", h))
+	log.Fatal(http.ListenAndServe(HOST + ":" + PORT, h))
 }

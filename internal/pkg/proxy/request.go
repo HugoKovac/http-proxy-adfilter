@@ -14,12 +14,12 @@ func (r RequestHandler) Do(w http.ResponseWriter, originalRequest *http.Request)
 	if clientIP, _, err := net.SplitHostPort(originalRequest.RemoteAddr); err == nil {
 		appendHostToXForwardHeader(originalRequest.Header, clientIP)
 	}
-
-	// //TODO: Add timeout
-	resp, httpErr = http.DefaultTransport.RoundTrip(originalRequest)
+	
+	//TODO: Add timeout
+	resp, httpErr = http.DefaultClient.Do(originalRequest)
 	if httpErr != nil {
 		http.Error(w, httpErr.Error(), http.StatusBadGateway)
-		return
+		return resp, httpErr
 	}
 	defer resp.Body.Close()
 

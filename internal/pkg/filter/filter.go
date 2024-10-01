@@ -11,17 +11,17 @@ import (
 )
 
 func Filter(w http.ResponseWriter, r *http.Request, db *sql.DB) error {
-	if r.URL.Scheme != "http" { // TODO: inplement ws and https
-		http.Error(w, "Scheme not supported", http.StatusBadRequest)
-		return errors.New("Scheme not supported")
-	}
+	// if r.URL.Scheme != "http" { // TODO: inplement ws and https
+	// 	http.Error(w, "Scheme not supported", http.StatusBadRequest)
+	// 	return errors.New("scheme not supported")
+	// }
 
 	client, err := macClients.GetInfoFromIP(r.RemoteAddr)
 	if err != nil {
 		return err
 	}
-	log.Println(r.URL.Hostname())
-	inIt, err := data.CheckClientDomain(db, client.MAC.String(), r.URL.Hostname())
+	log.Println(r.URL.Host)
+	inIt, err := data.CheckClientDomain(db, client.MAC.String(), r.URL.Host)
 	if err != nil {
 		return err
 	}

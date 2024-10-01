@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/proxy"
 )
 
 func GetDomainNotFound(t *testing.T, requestURL string, proxyURL string) {
@@ -53,7 +55,7 @@ func HeaderDiff(t *testing.T, originalH http.Header, proxyH http.Header) {
 }
 
 func GetOriginAndProxy(t *testing.T, requestURL string, proxyURL string) (normalResp *http.Response, originalError error, proxyResp *http.Response, proxyError error) {
-	url, originalError := url.Parse("http://localhost:8080")
+	url, originalError := url.Parse("http://" + proxy.HOST + ":" + proxy.PORT)
 	if originalError != nil {
 		t.Fatal(proxyURL, "not valid as URL")
 	}
@@ -125,7 +127,7 @@ func GetCompare(t *testing.T, requestURL string, proxyURL string) {
 }
 
 func TestSimpleRequest(t *testing.T) {
-	GetCompare(t, "http://www.google.com", "http://localhost:8080")
-	GetCompare(t, "http://www.google.com/index.html", "http://localhost:8080")
-	GetDomainNotFound(t, "http://www.google.comm", "http://localhost:8080")
+	GetCompare(t, "http://www.google.com", "http://" + proxy.HOST + ":" + proxy.PORT)
+	GetCompare(t, "http://www.google.com/index.html", "http://" + proxy.HOST + ":" + proxy.PORT)
+	GetDomainNotFound(t, "http://www.google.comm", "http://" + proxy.HOST + ":" + proxy.PORT)
 }
