@@ -52,8 +52,13 @@ Here is how to proxy all the http traffic of a client to our proxy
 
 Name|Language|Binary Size (kB)|shared lib (kB)|at rest memory data (kB)|stress test memory data (kB)
 ---|---|---|---|---|---
-Eyeo|Go|12700|8|17344|/
+Eyeo|Go|13365|4|168376|179908
 tinyproxy|C|130.8|652|39376|40128
-squid|C++|6300|47460|601912|602440
-trafficserver|C++|115000|9288|408560|415888
+
+HTTP Request comparison
+
+ Proxy|normal total request time|Proxied total request time|Difference
+---|---|---|---
+Eyeo|0.367237s|0.482646s|0.115409s
+tinyproxy|0.366646s|0.419841s|0.053195
 

@@ -1,36 +1,85 @@
 version: "3.8"
 services:
-  db:
-    image: postgres
-    container_name: local_pgdb
-    restart: always
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: user-name
-      POSTGRES_PASSWORD: strong-password
+  proxy:
+    build:
+      context: .
+      dockerfile: docker/proxy/proxy.Dockerfile
+    platform: linux/arm
+    container_name: proxy
     volumes:
-      - local_pgdata:/var/lib/postgresql/data
+      - local_proxy:/var/lib/postgresql/data
     networks:
-      - backend
+      - all
+    deploy:
+      resources:
+        limits:
+          memory: 250M
+          cpus: '1'
+        reservations:
+          memory: 250M
 
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: pgadmin4_container
-    restart: always
-    ports:
-      - "8888:80"
-    environment:
-      PGADMIN_DEFAULT_EMAIL: user-name@domain-name.com
-      PGADMIN_DEFAULT_PASSWORD: strong-password
-    volumes:
-      - pgadmin-data:/var/lib/pgadmin
-    networks:
-      - backend
+  # client:
+  #   container_name: time_test_client
+  #   build:
+  #     context: .
+  #     dockerfile: docker/client/client.Dockerfile
+  #   image: curlimages/curl
+  #   command: /resquest_time.sh http://httpforever.com/
+  #   networks:
+  #     - all
+
+  # client1:
+  #   container_name: client1
+  #   build:
+  #     context: .
+  #     dockerfile: docker/client/client.Dockerfile
+  #   image: curlimages/curl
+  #   command: sh /request/request1.sh
+  #   networks:
+  #     - all
+
+  # client2:
+  #   container_name: client2
+  #   build:
+  #     context: .
+  #     dockerfile: docker/client/client.Dockerfile
+  #   image: curlimages/curl
+  #   command: sh /request/request2.sh
+  #   networks:
+  #     - all
+
+  # client3:
+  #   container_name: client3
+  #   build:
+  #     context: .
+  #     dockerfile: docker/client/client.Dockerfile
+  #   image: curlimages/curl
+  #   command: sh /request/request3.sh
+  #   networks:
+  #     - all
+
+  # client4:
+  #   container_name: client4
+  #   build:
+  #     context: .
+  #     dockerfile: docker/client/client.Dockerfile
+  #   image: curlimages/curl
+  #   command: sh /request/request4.sh
+  #   networks:
+  #     - all
+
+  # client5:
+  #   container_name: client5
+  #   build:
+  #     context: .
+  #     dockerfile: docker/client/client.Dockerfile
+  #   image: curlimages/curl
+  #   command: sh /request/request5.sh
+  #   networks:
+  #     - all
 
 volumes:
-  local_pgdata:
-  pgadmin-data:
+  local_proxy:
 
 networks:
-  backend:
+  all:
