@@ -27,8 +27,6 @@ func (h handler) ServeHTTP(originalWriter http.ResponseWriter, originalRequest *
 	originalRequest.URL.Path = originalRequest.RequestURI
 	//TODO: Fill and check all URL vaiable like params
 
-	// log.Printf("%#v", originalRequest)
-	// log.Printf("%#v", originalRequest.URL)
 	if originalRequest.Host == "192.168.10.1" {
 		log.Println("Handler")
 		api.Handler(originalWriter, originalRequest, h.db)

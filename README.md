@@ -2,13 +2,14 @@
 
 The purpose of this project create a proxy that can:
   - Proxy HTTP
-  - Proxy HTTPS
-  - Proxy Web Socket
+  - (Proxy HTTPS)
+  - (Proxy Web Socket)
   - Save persitent client (via MAC adresses) to apply following rules:
     - Subscribe a client to categorized block list(s)
     - Block HTTP(S) and WS traffic to custom domains
-    - Disabling all list for x amount of time for SELF
+    - (Disabling all list for x amount of time for SELF)
     - (Add auth with admin?)
+    - (Block associated IP addresses ?)
 
 ## File Structure
 
@@ -25,42 +26,34 @@ The purpose of this project create a proxy that can:
 
  You can run `make seed` to seed the DB with dummy data
 
-# Limits
+# Storage
 
-## Lists
+To choose the storage type of the list we have to take in account the limited:
 
-### Importing
-> API Fetch
->
-? What's the max list size that we can fetch and store in RAM ?
-
-### Parsing
-> From JSON fetched to local storing (via struct)
-
-? How fast can we 
-
-We know that the i/o is very low. So we want to prioritize batch commit to persitant storage.
-
-? If we are using an sqllite DB is it possible to import a raw json as a table or append it to a table ?
-
-### Storing
-> DB usage and file size
-
-We want a:
+- RAM
+- CPU
+- File i/o
 - Persitant storage
-- Low complexity
-- Low ram consumption
-- Low I/O consumption
 
+Also we'll have to check at the domain state for each of the requests so we want this to be retrived as fast as possible
 
-### Reading
-> Reading Complexity and Caching
+Knowing all that SqlLite seems to be the best choice.
 
-Hash table are prefered because we want to check domains for each of the request and we are waiting the results for each of them
+Since Sql Lite is storing the data in a file we'll prefer batch inserts for repeted inserts such as the lists imports.
 
 # Proxy HTTP Traffic
 ## Glinet
 
-Here is how to proxy all the http traffic of a client to out proxy
+Here is how to proxy all the http traffic of a client to our proxy
 
  `iptables -t nat -A PREROUTING -s 192.168.10.207 -p tcp --dport 80 -j REDIRECT --to-port 8888`
+
+# Performance
+
+Name|Language|Binary Size (kB)|shared lib (kB)|at rest memory data (kB)|stress test memory data (kB)
+---|---|---|---|---|---
+Eyeo|Go|12700|8|17344|/
+tinyproxy|C|130.8|652|39376|40128
+squid|C++|6300|47460|601912|602440
+trafficserver|C++|115000|9288|408560|415888
+
