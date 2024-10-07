@@ -14,16 +14,16 @@ const (
 )
 
 func ListenHandler(db *sql.DB, boltdb *bolt.DB) {
-	http.HandleFunc("/get_category_list", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" {
-			getCategoryLists(w, r, db)
-			return
-		}
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-	})
+	// http.HandleFunc("/get_category_list", func(w http.ResponseWriter, r *http.Request) {
+	// 	if r.Method == "GET" {
+	// 		getCategoryLists(w, r, db)
+	// 		return
+	// 	}
+	// 	http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	// })
 	http.HandleFunc("/get_sub_lists", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
-			getSubLists(w, r, db)
+			getSubLists(w, r, boltdb)
 			return
 		}
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)

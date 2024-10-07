@@ -23,13 +23,14 @@ func getCategoryLists(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
-func getSubLists(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+func getSubLists(w http.ResponseWriter, r *http.Request, boltdb *bolt.DB) {
 	client, err := macClients.GetInfoFromIP(r.RemoteAddr)
 	if err != nil {
 		http.Error(w, "Getting client info: " + err.Error(), http.StatusInternalServerError)
 		return
 	}
-	list, err := data.GetSubscribedCategoryLists(db, client.MAC.String());
+
+	list, err := data.GetClientCategoriesList(boltdb, client.MAC.String())
 	if err != nil {
 		http.Error(w, "", http.StatusInternalServerError)
 	}

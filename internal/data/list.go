@@ -15,28 +15,6 @@ import (
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/types"
 )
 
-func GetSubscribedCategoryLists(db *sql.DB, mac string) (list []types.CategoryList, err error) {
-	rows, err := db.Query(`SELECT cat.*
-		FROM client c
-		JOIN client_category cc on c.client_mac = cc.client_mac
-		JOIN category cat on cc.category_name = cat.category_name
-		WHERE c.client_mac = ?`, mac)
-	if err != nil {
-		return list, err
-	}
-	for rows.Next() {
-		var index types.CategoryList
-
-		err := rows.Scan(&index.CategoryName, &index.Description)
-		if err != nil {
-			log.Println(err)
-		}
-		list = append(list, index)
-	} 
-	return list, nil
-	
-}
-
 func DelSubscribtion(db *sql.DB, category string, mac string) (err error){
 	_, err = db.Exec(`DELETE FROM client_category
 		WHERE client_mac = ? AND category_name = ?`, mac, category);
@@ -118,6 +96,17 @@ func AppendValue(b *bolt.Bucket, key string, value string) error {
 		// associate domain name with the name of the category
 		return b.Put([]byte(key), buf)
 	}
+}
+
+func GetClientCategoriesList(boltdb *bolt.DB, macAddr string) (list []string, err error) {
+	err = boltdb.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("client_categories"))
+		value := b.Get([]byte(macAddr))
+		json.Unmarshal(value, &list)
+		
+		return nil
+	})
+	return list, err
 }
 
 func DelValue(b *bolt.Bucket, key string, value string) error {
