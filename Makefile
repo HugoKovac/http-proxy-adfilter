@@ -17,8 +17,8 @@ build_migrate:
 migrate:
 	DB_TYPE=${DB_TYPE} go run cmd/migration/main.go
 
-del_lists:
-	DB_TYPE=${DB_TYPE} go run cmd/delete_lists/main.go
+display_db:
+	DB_TYPE=${DB_TYPE} go run cmd/display_db/main.go
 
 db_up:
 	docker compose up -d

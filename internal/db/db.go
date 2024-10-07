@@ -3,13 +3,15 @@ package db
 import (
 	"database/sql"
 	"log"
+	"time"
 
 	_ "modernc.org/sqlite"
+	"github.com/boltdb/bolt"
 )
 
 const file string = "activities.db"
 
-func NewDatabase() (db *sql.DB) {
+func NewDatabase() (db *sql.DB, boltdb *bolt.DB) {
 	var err error
 	db, err = sql.Open("sqlite", file)
 
@@ -42,5 +44,10 @@ func NewDatabase() (db *sql.DB) {
 
 	log.Println("Connected to DB")
 
-	return db
+	boltdb, err = bolt.Open("my.db", 0600, &bolt.Options{Timeout: 1 * time.Second})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return db, boltdb
 }

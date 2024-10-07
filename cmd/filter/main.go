@@ -8,7 +8,7 @@ import (
 
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/data"
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/db"
-	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/proxy"
+	// "gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/proxy"
 )
 
 
@@ -17,14 +17,14 @@ func main(){
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 
-	db := db.NewDatabase()
-	go proxy.ListenProxy(db)
+	db, boltdb := db.NewDatabase()
+	// go proxy.ListenProxy(db, boltdb)
 	
 	if err := db.Ping(); err != nil {
 		log.Panic(err)
 	}
 
-	data.GetCategorizedDomainList(db)
+	data.GetCategorizedDomainList(db, boltdb)
 
 	<-sigs
 	db.Close()	

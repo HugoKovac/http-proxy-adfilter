@@ -5,6 +5,7 @@ go 1.22.5
 require github.com/glebarez/go-sqlite v1.22.0
 
 require (
+	github.com/boltdb/bolt v1.3.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/eatonphil/gosqlite v0.10.0 // indirect
 	github.com/google/uuid v1.5.0 // indirect

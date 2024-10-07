@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/api"
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/filter"
+	"github.com/boltdb/bolt"
 )
 
 const (
@@ -16,6 +17,7 @@ const (
 
 type handler struct {
 	db *sql.DB
+	boltdb *bolt.DB
 }
 
 func (h handler) ServeHTTP(originalWriter http.ResponseWriter, originalRequest *http.Request) {
@@ -51,8 +53,8 @@ func (h handler) ServeHTTP(originalWriter http.ResponseWriter, originalRequest *
 	HeaderHandler.PostRequest(proxyResp, originalWriter)
 }
 
-func ListenProxy(db *sql.DB) {
-	h := handler{db}
+func ListenProxy(db *sql.DB, boltdb *bolt.DB) {
+	h := handler{db, boltdb}
 
 	log.Fatal(http.ListenAndServe(HOST + ":" + PORT, h))
 }

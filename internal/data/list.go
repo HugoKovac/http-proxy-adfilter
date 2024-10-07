@@ -7,8 +7,10 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 	"sync"
 
+	"github.com/boltdb/bolt"
 	macClients "gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/mac_clients"
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/types"
 )
@@ -96,48 +98,37 @@ func AppendCategoryToClient(db *sql.DB, clientMAC string, categoryName string) e
 	return nil
 }
 
-func ensureCategoryExists(db *sql.DB, categoryName, description string) (string, error) {
-	// Check if the category exists
-	var existingDescription string
-	err := db.QueryRow("SELECT description FROM category WHERE category_name = ?", categoryName).Scan(&existingDescription)
-
-	if err == sql.ErrNoRows {
-		// If not exists, insert the new category
-		_, err := db.Exec("INSERT INTO category (category_name, description) VALUES (?, ?)", categoryName, description)
+func insertDomain(b *bolt.Bucket, domainName string, categoryName string) error {
+	// Check is domain already have catgories
+	value := b.Get([]byte(domainName))
+	// if not create empty json array with domain struct
+	if value == nil {
+		buf, err := json.Marshal([]string{categoryName})
 		if err != nil {
-			return "", fmt.Errorf("failed to insert category: %w", err)
+			return fmt.Errorf("format in json: %s", categoryName)
 		}
-		log.Printf("Inserted new category: %s\n", categoryName)
-		return categoryName, nil
-	} else if err != nil {
-		return "", fmt.Errorf("failed to query category: %w", err)
-	}
-
-	// If the category already exists, return the existing category name
-	return categoryName, nil
-}
-
-func insertDomain(txn *sql.Tx, domainName, categoryName string) error {
-	// Check if the domain already exists
-	var existingDomain string
-	err := txn.QueryRow("SELECT domain_name FROM domain WHERE domain_name = ?", domainName).Scan(&existingDomain)
-
-	if err == sql.ErrNoRows {
-		// If not exists, insert the new domain
-		_, err := txn.Exec("INSERT INTO domain (domain_name) VALUES (?)", domainName)
+		// associate domain name with the name of the category
+		log.Println(domainName, buf)
+		return b.Put([]byte(domainName), buf)
+	} else {
+		var categoriesArray []string
+		err := json.Unmarshal(value, &categoriesArray)
 		if err != nil {
-			txn.Rollback()
-			return fmt.Errorf("failed to insert domain: %w", err)
+			return fmt.Errorf("unmarshal %s's value", domainName)
 		}
+		for _, cat := range categoriesArray {
+			if strings.Compare(cat, categoryName) == 0{
+				return nil
+			}
+		}
+		categoriesArray = append(categoriesArray, categoryName)
+		buf, err := json.Marshal(categoriesArray)
+		if err != nil {
+			return fmt.Errorf("format in json: %s", categoryName)
+		}
+		// associate domain name with the name of the category
+		return b.Put([]byte(domainName), buf)
 	}
-
-	// Now insert the domain-category association in the junction table
-	_, err = txn.Exec("INSERT INTO domain_category (domain_name, category_name) VALUES (?, ?) ON CONFLICT DO NOTHING", domainName, categoryName)
-	if err != nil {
-		return fmt.Errorf("failed to associate domain with category: %w", err)
-	}
-
-	return nil
 }
 
 func CheckClientDomain(db *sql.DB, clientMAC string, domainName string) (bool, error) {
@@ -179,49 +170,40 @@ func fakeFetch() (data []types.DomainList, err error) {
 	return data, nil
 }
 
-func GetCategorizedDomainList(db *sql.DB) {
+func GetCategorizedDomainList(db *sql.DB, boltdb *bolt.DB) {
 	domainLists, err := fakeFetch()
 	if err != nil {
 		log.Println(err)
 		return
 	}
 	
+	for _, category := range domainLists {
+		for _, j := range category.List{
+			log.Println(j)
+		}
+	}
+
 	var wg sync.WaitGroup
 
-	for _, d := range domainLists {
+	for _, category := range domainLists { // iterate in domainLists.list
 		wg.Add(1)
 
-		go func(d types.DomainList) {
+		// Create new thread for each list
+		go func(category types.DomainList) {
 			defer wg.Done()
+			boltdb.Update(func(tx *bolt.Tx) error {
+				// Get related bucker
+				b := tx.Bucket([]byte("domain_categories"))
 
-			categoryID, err := ensureCategoryExists(db, d.Name, d.Description)
-			if err != nil {
-				log.Printf("Error ensuring category exists: %v\n", err)
-				return
-			}
-
-			txn, err := db.Begin()
-			if err != nil {
-				log.Println(err)
-				return
-			}
-
-			for _, domain := range d.List {
-				err := insertDomain(txn, domain, categoryID)
-				if err != nil {
-					log.Printf("Error inserting domain %s: %v\n", domain, err)
-				} else {
-					// log.Printf("Successfully associated domain %s with category %s\n", domain, d.Name)
+				// For all domains
+				for _, domain := range category.List {
+					insertDomain(b, domain, category.Name)
 				}
-			}
+				return nil
+			})
 
-			if err := txn.Commit(); err != nil {
-				log.Println(err)
-				return
-			}
-
-			log.Println("Successfully imported: ", d.Name)
-		}(d) 
+			log.Println("Successfully imported: ", category.Name)
+		}(category) 
 	}
 
 	wg.Wait()
