@@ -55,19 +55,6 @@ func CreateMacClient(boltdb *bolt.DB, client macClients.Client) error {
 		return err
 	})
 
-
-	// if err == sql.ErrNoRows {
-	// 	// If not exists, insert the new client
-	// 	_, err := db.Exec("INSERT INTO client (client_mac, ip) VALUES (?, ?)", macStr, ipStr)
-	// 	if err != nil {
-	// 		return fmt.Errorf("failed to insert client: %w", err)
-	// 	}
-	// 	log.Printf("Inserted new client: %s\n", macStr)
-	// } else if err != nil {
-	// 	return fmt.Errorf("failed to query client: %w", err)
-	// }
-
-	// Client exists or has been inserted successfully
 	return err
 }
 
@@ -124,6 +111,38 @@ func AppendValue(b *bolt.Bucket, key string, value string) error {
 			}
 		}
 		categoriesArray = append(categoriesArray, value)
+		buf, err := json.Marshal(categoriesArray)
+		if err != nil {
+			return fmt.Errorf("format in json: %s", value)
+		}
+		// associate domain name with the name of the category
+		return b.Put([]byte(key), buf)
+	}
+}
+
+func DelValue(b *bolt.Bucket, key string, value string) error {
+	// Check is domain already have catgories
+	pastValue := b.Get([]byte(key))
+	// if not create empty json array with domain struct
+	if pastValue == nil {
+		return nil
+	} else {
+		var categoriesArray []string
+		err := json.Unmarshal(pastValue, &categoriesArray)
+		if err != nil {
+			return fmt.Errorf("unmarshal %s's value", key)
+		}
+		i := -1
+		for key, cat := range categoriesArray {
+			if strings.Compare(cat, value) == 0{
+				i = key
+				break
+			}
+		}
+		if i == -1 {
+			return fmt.Errorf("don't exist")
+		}
+		categoriesArray = append(categoriesArray[:i], categoriesArray[i+1:]...)
 		buf, err := json.Marshal(categoriesArray)
 		if err != nil {
 			return fmt.Errorf("format in json: %s", value)

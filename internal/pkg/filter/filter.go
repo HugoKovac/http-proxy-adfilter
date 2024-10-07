@@ -3,7 +3,6 @@ package filter
 import (
 	"database/sql"
 	"errors"
-	"log"
 	"net/http"
 
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/data"
@@ -21,14 +20,11 @@ func Filter(w http.ResponseWriter, r *http.Request, db *sql.DB, boltdb *bolt.DB)
 	if err != nil {
 		return err
 	}
-	log.Println(r.URL.Host)
-	inIt, err := data.CheckClientDomain(db, boltdb, client.MAC.String(), r.URL.Host)
-	log.Printf("%s has a category: %b", r.URL.Host, inIt)
+	ok, err := data.CheckClientDomain(db, boltdb, client.MAC.String(), r.URL.Host)
 	if err != nil {
 		return err
 	}
-	log.Println("Blocked: ", inIt)
-	if inIt {
+	if ok {
 		http.Error(w, "Blocked By Eyeo", http.StatusForbidden)
 		return errors.New("Blocked")
 	}

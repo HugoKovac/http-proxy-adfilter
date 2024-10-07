@@ -37,7 +37,7 @@ func ListenHandler(db *sql.DB, boltdb *bolt.DB) {
 	})
 	http.HandleFunc("/del_sub_list", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
-			delSubList(w, r, db)
+			delSubList(w, r, boltdb)
 			return
 		}
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)

@@ -72,7 +72,7 @@ func addSubList(w http.ResponseWriter, r *http.Request, boltdb *bolt.DB) {
 	w.WriteHeader(201)
 }
 
-func delSubList(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+func delSubList(w http.ResponseWriter, r *http.Request, boltdb *bolt.DB) {
 	r.ParseForm()
 	category := r.FormValue("category")
 	if category == "" {
@@ -85,9 +85,16 @@ func delSubList(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		http.Error(w, "Getting client info: " + err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err = data.DelSubscribtion(db, category, client.MAC.String()) ;err != nil {
+	if err = boltdb.Update(func(tx *bolt.Tx) (err error) {
+		// Get related bucker
+		b := tx.Bucket([]byte("client_categories"))
+
+		log.Println(category, client.MAC.String())
+		err = data.DelValue(b, client.MAC.String(), category)
+		return err
+	}); err != nil {
 		log.Println(err)
-		http.Error(w, "", http.StatusBadRequest)
+		http.Error(w, "subscribe to the list", http.StatusBadRequest)
 		return
 	}
 
