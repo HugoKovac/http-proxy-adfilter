@@ -43,30 +43,32 @@ func DelSubscribtion(db *sql.DB, category string, mac string) (err error){
 	return err
 }
 
-func EnsureClientExists(db *sql.DB, client macClients.Client) error {
+func CreateMacClient(boltdb *bolt.DB, client macClients.Client) error {
 	// Convert MAC and IP to strings
 	macStr := client.MAC.String()
 	ipStr := client.IP.String()
 
-	// Check if the client already exists
-	var existingMAC string
-	log.Printf("Checking if client exists: MAC = %s, IP = %s\n", macStr, ipStr)
+	// Check if already exist
+	err := boltdb.Update(func(tx *bolt.Tx) (err error) {
+		bucket := tx.Bucket([]byte("mac_client"))
+		err = bucket.Put([]byte(macStr), []byte(ipStr))
+		return err
+	})
 
-	err := db.QueryRow("SELECT client_mac FROM client WHERE client_mac = ?", macStr).Scan(&existingMAC)
 
-	if err == sql.ErrNoRows {
-		// If not exists, insert the new client
-		_, err := db.Exec("INSERT INTO client (client_mac, ip) VALUES (?, ?)", macStr, ipStr)
-		if err != nil {
-			return fmt.Errorf("failed to insert client: %w", err)
-		}
-		log.Printf("Inserted new client: %s\n", macStr)
-	} else if err != nil {
-		return fmt.Errorf("failed to query client: %w", err)
-	}
+	// if err == sql.ErrNoRows {
+	// 	// If not exists, insert the new client
+	// 	_, err := db.Exec("INSERT INTO client (client_mac, ip) VALUES (?, ?)", macStr, ipStr)
+	// 	if err != nil {
+	// 		return fmt.Errorf("failed to insert client: %w", err)
+	// 	}
+	// 	log.Printf("Inserted new client: %s\n", macStr)
+	// } else if err != nil {
+	// 	return fmt.Errorf("failed to query client: %w", err)
+	// }
 
 	// Client exists or has been inserted successfully
-	return nil
+	return err
 }
 
 func GetCategoryLists(db *sql.DB) (list []types.CategoryList, err error) {
@@ -98,68 +100,86 @@ func AppendCategoryToClient(db *sql.DB, clientMAC string, categoryName string) e
 	return nil
 }
 
-func insertDomain(b *bolt.Bucket, domainName string, categoryName string) error {
+func AppendValue(b *bolt.Bucket, key string, value string) error {
 	// Check is domain already have catgories
-	value := b.Get([]byte(domainName))
+	pastValue := b.Get([]byte(key))
 	// if not create empty json array with domain struct
-	if value == nil {
-		buf, err := json.Marshal([]string{categoryName})
+	if pastValue == nil {
+		buf, err := json.Marshal([]string{value})
 		if err != nil {
-			return fmt.Errorf("format in json: %s", categoryName)
+			return fmt.Errorf("format in json: %s", value)
 		}
 		// associate domain name with the name of the category
-		log.Println(domainName, buf)
-		return b.Put([]byte(domainName), buf)
+		log.Println(key, buf)
+		return b.Put([]byte(key), buf)
 	} else {
 		var categoriesArray []string
-		err := json.Unmarshal(value, &categoriesArray)
+		err := json.Unmarshal(pastValue, &categoriesArray)
 		if err != nil {
-			return fmt.Errorf("unmarshal %s's value", domainName)
+			return fmt.Errorf("unmarshal %s's value", key)
 		}
 		for _, cat := range categoriesArray {
-			if strings.Compare(cat, categoryName) == 0{
+			if strings.Compare(cat, value) == 0{
 				return nil
 			}
 		}
-		categoriesArray = append(categoriesArray, categoryName)
+		categoriesArray = append(categoriesArray, value)
 		buf, err := json.Marshal(categoriesArray)
 		if err != nil {
-			return fmt.Errorf("format in json: %s", categoryName)
+			return fmt.Errorf("format in json: %s", value)
 		}
 		// associate domain name with the name of the category
-		return b.Put([]byte(domainName), buf)
+		return b.Put([]byte(key), buf)
 	}
 }
 
-func CheckClientDomain(db *sql.DB, boltdb *bolt.DB, clientMAC string, domainName string) (bool, error) {
-	// query := `
-	// 	SELECT EXISTS (
-	// 		SELECT 1
-	// 		FROM client_category cc
-	// 		JOIN domain_category dc ON cc.category_name = dc.category_name
-	// 		JOIN client c ON cc.client_mac = c.client_mac
-	// 		WHERE c.client_mac = ? AND dc.domain_name = ?
-	// 	);
-	// `
-	// var exists bool
-	// log.Println(clientMAC, domainName)
-	// err := db.QueryRow(query, clientMAC, domainName).Scan(&exists)
-	// if err != nil {
-	// 	log.Println("PSQLLITE ERROR")
-	// 	return false, err
-	// }
-	var result []byte
-	err := boltdb.View(func(tx *bolt.Tx) error {
-		// TODO: get clients categories and check if in domain categories
-		// tx.Bucket([]byte("client_categories")) // CHECK THAT FIRST
-		bucket := tx.Bucket([]byte("domain_categories"))
-		result = bucket.Get([]byte(domainName))
-		log.Println(string(result))
+func hasCommonElement(arr1, arr2 []string) bool {
+	// Create a map to store the elements of the first array
+	elementMap := make(map[string]bool)
+
+	// Populate the map with elements from the first array
+	for _, str := range arr1 {
+		elementMap[str] = true
+	}
+
+	// Check if elements of the second array exist in the map
+	for _, str := range arr2 {
+		if elementMap[str] {
+			return true
+		}
+	}
+
+	return false
+}
+
+func CheckClientDomain(db *sql.DB, boltdb *bolt.DB, clientMAC string, domainName string) (ok bool, err error) {
+	var clientCategories []string
+	var domainCategories []string
+	
+	err = boltdb.View(func(tx *bolt.Tx) error {
+		clientBucket := tx.Bucket([]byte("client_categories"))
+		domainBucket := tx.Bucket([]byte("domain_categories"))
+
+		rawClientCategories := clientBucket.Get([]byte(clientMAC))
+		rawDomainCategories := domainBucket.Get([]byte(domainName))
+
+		if rawClientCategories == nil || rawDomainCategories == nil {
+			return nil // No categories means not blocked
+		}
+
+		if err := json.Unmarshal(rawClientCategories, &clientCategories); err != nil {
+			return err
+		}
+		if err := json.Unmarshal(rawDomainCategories, &domainCategories); err != nil {
+			return err
+		}
+
+		ok = hasCommonElement(clientCategories, domainCategories)
+
 		return nil
 
 	})
-
-	return result != nil, err
+	return ok, err
 }
 
 func fakeFetch() (data []types.DomainList, err error) {
@@ -208,7 +228,7 @@ func GetCategorizedDomainList(db *sql.DB, boltdb *bolt.DB) {
 
 				// For all domains
 				for _, domain := range category.List {
-					insertDomain(b, domain, category.Name)
+					AppendValue(b, domain, category.Name)
 				}
 				return nil
 			})

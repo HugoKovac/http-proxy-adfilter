@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/boltdb/bolt"
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/data"
 	macClients "gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/mac_clients"
 )
@@ -39,7 +40,7 @@ func getSubLists(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
-func addSubList(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+func addSubList(w http.ResponseWriter, r *http.Request, boltdb *bolt.DB) {
 	r.ParseForm()
 	category := r.FormValue("category")
 	if category == "" {
@@ -52,13 +53,19 @@ func addSubList(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		http.Error(w, "Getting client info: " + err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := data.EnsureClientExists(db, client); err != nil {
+	if err := data.CreateMacClient(boltdb, client); err != nil {
 		http.Error(w, "Checking if client exist: " + err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := data.AppendCategoryToClient(db, client.MAC.String(), category); err != nil {
+	if err = boltdb.Update(func(tx *bolt.Tx) (err error) {
+		// Get related bucker
+		b := tx.Bucket([]byte("client_categories"))
+
+		err = data.AppendValue(b, client.MAC.String(), category)
+		return err
+	}); err != nil {
 		log.Println(err)
-		http.Error(w, "Category does not exist", http.StatusBadRequest)
+		http.Error(w, "subscribe to the list", http.StatusBadRequest)
 		return
 	}
 
@@ -86,30 +93,3 @@ func delSubList(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 
 }
 
-func Handler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
-	log.Println("Method", r.Method)
-	log.Println("Path", r.URL.Path)
-
-	switch r.Method {
-	case "GET":
-		switch r.URL.Path {
-		case "/get_category_list":
-			getCategoryLists(w, r, db)
-		case "/get_sub_lists":
-			getSubLists(w, r, db)
-		default:
-			http.Error(w, "Not Found", http.StatusNotFound)
-		}
-	case "POST":
-		switch r.URL.Path {
-		case "/add_sub_list":
-			addSubList(w, r, db)
-		case "/del_sub_list":
-			delSubList(w, r, db)
-		default:
-			http.Error(w, "Not Found", http.StatusNotFound)
-		}
-	default:
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-	}
-}

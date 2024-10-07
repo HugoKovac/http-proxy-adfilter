@@ -30,7 +30,7 @@ func ListenHandler(db *sql.DB, boltdb *bolt.DB) {
 	})
 	http.HandleFunc("/add_sub_list", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
-			addSubList(w, r, db)
+			addSubList(w, r, boltdb)
 			return
 		}
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
