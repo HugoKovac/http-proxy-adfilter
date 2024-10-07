@@ -5,14 +5,14 @@ import (
 	"log"
 	"net/http"
 
-	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/api"
+	// "gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/api"
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/filter"
 	"github.com/boltdb/bolt"
 )
 
 const (
 	PORT = "8888"
-	HOST = "0.0.0.0"
+	HOST = "localhost"
 )
 
 type handler struct {
@@ -29,13 +29,7 @@ func (h handler) ServeHTTP(originalWriter http.ResponseWriter, originalRequest *
 	originalRequest.URL.Path = originalRequest.RequestURI
 	//TODO: Fill and check all URL vaiable like params
 
-	if originalRequest.Host == "192.168.10.1" {
-		log.Println("Handler")
-		api.Handler(originalWriter, originalRequest, h.db)
-		return
-	}
-
-	err := filter.Filter(originalWriter, originalRequest, h.db)
+	err := filter.Filter(originalWriter, originalRequest, h.db, h.boltdb)
 	if err != nil {
 		log.Println(err)
 		return

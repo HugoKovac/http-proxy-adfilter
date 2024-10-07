@@ -131,24 +131,35 @@ func insertDomain(b *bolt.Bucket, domainName string, categoryName string) error 
 	}
 }
 
-func CheckClientDomain(db *sql.DB, clientMAC string, domainName string) (bool, error) {
-	query := `
-		SELECT EXISTS (
-			SELECT 1
-			FROM client_category cc
-			JOIN domain_category dc ON cc.category_name = dc.category_name
-			JOIN client c ON cc.client_mac = c.client_mac
-			WHERE c.client_mac = ? AND dc.domain_name = ?
-		);
-	`
-	var exists bool
-	log.Println(clientMAC, domainName)
-	err := db.QueryRow(query, clientMAC, domainName).Scan(&exists)
-	if err != nil {
-		log.Println("PSQLLITE ERROR")
-		return false, err
-	}
-	return exists, nil
+func CheckClientDomain(db *sql.DB, boltdb *bolt.DB, clientMAC string, domainName string) (bool, error) {
+	// query := `
+	// 	SELECT EXISTS (
+	// 		SELECT 1
+	// 		FROM client_category cc
+	// 		JOIN domain_category dc ON cc.category_name = dc.category_name
+	// 		JOIN client c ON cc.client_mac = c.client_mac
+	// 		WHERE c.client_mac = ? AND dc.domain_name = ?
+	// 	);
+	// `
+	// var exists bool
+	// log.Println(clientMAC, domainName)
+	// err := db.QueryRow(query, clientMAC, domainName).Scan(&exists)
+	// if err != nil {
+	// 	log.Println("PSQLLITE ERROR")
+	// 	return false, err
+	// }
+	var result []byte
+	err := boltdb.View(func(tx *bolt.Tx) error {
+		// TODO: get clients categories and check if in domain categories
+		// tx.Bucket([]byte("client_categories")) // CHECK THAT FIRST
+		bucket := tx.Bucket([]byte("domain_categories"))
+		result = bucket.Get([]byte(domainName))
+		log.Println(string(result))
+		return nil
+
+	})
+
+	return result != nil, err
 }
 
 func fakeFetch() (data []types.DomainList, err error) {
@@ -191,7 +202,7 @@ func GetCategorizedDomainList(db *sql.DB, boltdb *bolt.DB) {
 		// Create new thread for each list
 		go func(category types.DomainList) {
 			defer wg.Done()
-			boltdb.Update(func(tx *bolt.Tx) error {
+			boltdb.Batch(func(tx *bolt.Tx) error {
 				// Get related bucker
 				b := tx.Bucket([]byte("domain_categories"))
 

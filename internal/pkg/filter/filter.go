@@ -8,9 +8,10 @@ import (
 
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/data"
 	macClients "gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/mac_clients"
+	"github.com/boltdb/bolt"
 )
 
-func Filter(w http.ResponseWriter, r *http.Request, db *sql.DB) error {
+func Filter(w http.ResponseWriter, r *http.Request, db *sql.DB, boltdb *bolt.DB) error {
 	// if r.URL.Scheme != "http" { // TODO: inplement ws and https
 	// 	http.Error(w, "Scheme not supported", http.StatusBadRequest)
 	// 	return errors.New("scheme not supported")
@@ -21,7 +22,8 @@ func Filter(w http.ResponseWriter, r *http.Request, db *sql.DB) error {
 		return err
 	}
 	log.Println(r.URL.Host)
-	inIt, err := data.CheckClientDomain(db, client.MAC.String(), r.URL.Host)
+	inIt, err := data.CheckClientDomain(db, boltdb, client.MAC.String(), r.URL.Host)
+	log.Printf("%s has a category: %b", r.URL.Host, inIt)
 	if err != nil {
 		return err
 	}

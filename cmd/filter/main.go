@@ -8,7 +8,8 @@ import (
 
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/data"
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/db"
-	// "gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/proxy"
+	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/api"
+	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/proxy"
 )
 
 
@@ -18,7 +19,9 @@ func main(){
 
 
 	db, boltdb := db.NewDatabase()
-	// go proxy.ListenProxy(db, boltdb)
+	go proxy.ListenProxy(db, boltdb)
+	go api.ListenHandler(db, boltdb)
+
 	
 	if err := db.Ping(); err != nil {
 		log.Panic(err)
