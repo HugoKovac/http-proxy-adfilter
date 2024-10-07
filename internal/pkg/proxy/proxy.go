@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
 
@@ -16,7 +15,6 @@ const (
 )
 
 type handler struct {
-	db *sql.DB
 	boltdb *bolt.DB
 }
 
@@ -29,7 +27,7 @@ func (h handler) ServeHTTP(originalWriter http.ResponseWriter, originalRequest *
 	originalRequest.URL.Path = originalRequest.RequestURI
 	//TODO: Fill and check all URL vaiable like params
 
-	err := filter.Filter(originalWriter, originalRequest, h.db, h.boltdb)
+	err := filter.Filter(originalWriter, originalRequest, h.boltdb)
 	if err != nil {
 		log.Println(err)
 		return
@@ -47,8 +45,8 @@ func (h handler) ServeHTTP(originalWriter http.ResponseWriter, originalRequest *
 	HeaderHandler.PostRequest(proxyResp, originalWriter)
 }
 
-func ListenProxy(db *sql.DB, boltdb *bolt.DB) {
-	h := handler{db, boltdb}
+func ListenProxy(boltdb *bolt.DB) {
+	h := handler{boltdb}
 
 	log.Fatal(http.ListenAndServe(HOST + ":" + PORT, h))
 }

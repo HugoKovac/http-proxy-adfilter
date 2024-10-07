@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -18,19 +17,15 @@ func main(){
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 
-	db, boltdb := db.NewDatabase()
-	go proxy.ListenProxy(db, boltdb)
-	go api.ListenHandler(db, boltdb)
+	boltdb := db.NewDatabase()
+	go proxy.ListenProxy(boltdb)
+	go api.ListenHandler(boltdb)
 
-	
-	if err := db.Ping(); err != nil {
-		log.Panic(err)
-	}
 
-	data.GetCategorizedDomainList(db, boltdb)
+	data.GetCategorizedDomainList(boltdb)
 
 	<-sigs
-	db.Close()	
+	boltdb.Close()
 }
 
 /*

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -10,18 +9,6 @@ import (
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/data"
 	macClients "gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/mac_clients"
 )
-
-func getCategoryLists(w http.ResponseWriter, r *http.Request, db *sql.DB) {
-	list, err := data.GetCategoryLists(db);
-	if err != nil {
-		http.Error(w, "", http.StatusInternalServerError)
-	}
-
-	if err = json.NewEncoder(w).Encode(list); err != nil {
-		http.Error(w, "", http.StatusInternalServerError)
-	}
-	w.Header().Set("Content-Type", "application/json")
-}
 
 func getSubLists(w http.ResponseWriter, r *http.Request, boltdb *bolt.DB) {
 	client, err := macClients.GetInfoFromIP(r.RemoteAddr)

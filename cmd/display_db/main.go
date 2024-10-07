@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	_, boltdb := db.NewDatabase()
+	boltdb := db.NewDatabase()
 	defer boltdb.Close()
 		
 	boltdb.View(func(tx *bolt.Tx) error {

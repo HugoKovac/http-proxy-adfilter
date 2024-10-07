@@ -1,7 +1,6 @@
 package filter
 
 import (
-	"database/sql"
 	"errors"
 	"net/http"
 
@@ -10,7 +9,7 @@ import (
 	"github.com/boltdb/bolt"
 )
 
-func Filter(w http.ResponseWriter, r *http.Request, db *sql.DB, boltdb *bolt.DB) error {
+func Filter(w http.ResponseWriter, r *http.Request, boltdb *bolt.DB) error {
 	// if r.URL.Scheme != "http" { // TODO: inplement ws and https
 	// 	http.Error(w, "Scheme not supported", http.StatusBadRequest)
 	// 	return errors.New("scheme not supported")
@@ -20,7 +19,7 @@ func Filter(w http.ResponseWriter, r *http.Request, db *sql.DB, boltdb *bolt.DB)
 	if err != nil {
 		return err
 	}
-	ok, err := data.CheckClientDomain(db, boltdb, client.MAC.String(), r.URL.Host)
+	ok, err := data.CheckClientDomain(boltdb, client.MAC.String(), r.URL.Host)
 	if err != nil {
 		return err
 	}

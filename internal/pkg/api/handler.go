@@ -1,7 +1,6 @@
 package api
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
 
@@ -13,14 +12,7 @@ const (
 	PORT = "8080"
 )
 
-func ListenHandler(db *sql.DB, boltdb *bolt.DB) {
-	// http.HandleFunc("/get_category_list", func(w http.ResponseWriter, r *http.Request) {
-	// 	if r.Method == "GET" {
-	// 		getCategoryLists(w, r, db)
-	// 		return
-	// 	}
-	// 	http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-	// })
+func ListenHandler(boltdb *bolt.DB) {
 	http.HandleFunc("/get_sub_lists", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			getSubLists(w, r, boltdb)
