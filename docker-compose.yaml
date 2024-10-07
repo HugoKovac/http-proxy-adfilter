@@ -28,55 +28,55 @@ services:
   #   networks:
   #     - all
 
-  # client1:
-  #   container_name: client1
-  #   build:
-  #     context: .
-  #     dockerfile: docker/client/client.Dockerfile
-  #   image: curlimages/curl
-  #   command: sh /request/request1.sh
-  #   networks:
-  #     - all
+  client1:
+    container_name: client1
+    build:
+      context: .
+      dockerfile: docker/client/client.Dockerfile
+    image: curlimages/curl
+    command: sh /request/request1.sh
+    networks:
+      - all
 
-  # client2:
-  #   container_name: client2
-  #   build:
-  #     context: .
-  #     dockerfile: docker/client/client.Dockerfile
-  #   image: curlimages/curl
-  #   command: sh /request/request2.sh
-  #   networks:
-  #     - all
+  client2:
+    container_name: client2
+    build:
+      context: .
+      dockerfile: docker/client/client.Dockerfile
+    image: curlimages/curl
+    command: sh /request/request2.sh
+    networks:
+      - all
 
-  # client3:
-  #   container_name: client3
-  #   build:
-  #     context: .
-  #     dockerfile: docker/client/client.Dockerfile
-  #   image: curlimages/curl
-  #   command: sh /request/request3.sh
-  #   networks:
-  #     - all
+  client3:
+    container_name: client3
+    build:
+      context: .
+      dockerfile: docker/client/client.Dockerfile
+    image: curlimages/curl
+    command: sh /request/request3.sh
+    networks:
+      - all
 
-  # client4:
-  #   container_name: client4
-  #   build:
-  #     context: .
-  #     dockerfile: docker/client/client.Dockerfile
-  #   image: curlimages/curl
-  #   command: sh /request/request4.sh
-  #   networks:
-  #     - all
+  client4:
+    container_name: client4
+    build:
+      context: .
+      dockerfile: docker/client/client.Dockerfile
+    image: curlimages/curl
+    command: sh /request/request4.sh
+    networks:
+      - all
 
-  # client5:
-  #   container_name: client5
-  #   build:
-  #     context: .
-  #     dockerfile: docker/client/client.Dockerfile
-  #   image: curlimages/curl
-  #   command: sh /request/request5.sh
-  #   networks:
-  #     - all
+  client5:
+    container_name: client5
+    build:
+      context: .
+      dockerfile: docker/client/client.Dockerfile
+    image: curlimages/curl
+    command: sh /request/request5.sh
+    networks:
+      - all
 
 volumes:
   local_proxy:

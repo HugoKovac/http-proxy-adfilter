@@ -52,7 +52,8 @@ Here is how to proxy all the http traffic of a client to our proxy
 
 Name|Language|Binary Size (kB)|shared lib (kB)|at rest memory data (kB)|stress test memory data (kB)
 ---|---|---|---|---|---
-Eyeo|Go|13365|4|168376|179908
+Eyeo SQLITE|Go|13365|4|168376|179908
+Eyeo Bolt|Go|13285|4|153656|170188
 tinyproxy|C|130.8|652|39376|40128
 
 HTTP Request comparison

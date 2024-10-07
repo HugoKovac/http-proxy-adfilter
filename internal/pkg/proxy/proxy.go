@@ -11,7 +11,7 @@ import (
 
 const (
 	PORT = "8888"
-	HOST = "localhost"
+	HOST = "0.0.0.0"
 )
 
 type handler struct {
