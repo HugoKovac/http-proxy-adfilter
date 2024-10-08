@@ -60,9 +60,7 @@ iptables -t nat -A PREROUTING -s 192.168.10.207 -p tcp --dport 80 -j REDIRECT --
 
 - Implement domain caching for faster lookups
 - Set up SSL certificates for HTTPS support
-- Decide whether to open a separate port for API management
 - Add support for HTTPS and WebSocket proxying
 - Implement IP blocking for domains
-- Consider transitioning from SQLite to a key-value storage like Bolt for improved performance and scalability
 
 
