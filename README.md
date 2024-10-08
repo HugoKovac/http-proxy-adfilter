@@ -1,66 +1,68 @@
-# Router AdFilter in GO
+# Router AdFilter in Go
 
-The purpose of this project create a proxy that can:
-  - Proxy HTTP
-  - (Proxy HTTPS)
-  - (Proxy Web Socket)
-  - Save persitent client (via MAC adresses) to apply following rules:
-    - Subscribe a client to categorized block list(s)
-    - Block HTTP(S) and WS traffic to custom domains
-    - (Disabling all list for x amount of time for SELF)
-    - (Add auth with admin?)
-    - (Block associated IP addresses ?)
+## Project Overview
+
+The goal of this project is to create a proxy that can:
+  - Proxy HTTP traffic
+  - (Optionally) Proxy HTTPS and WebSocket traffic
+  - Persistently track clients by MAC address to enforce the following rules:
+    - Subscribe clients to categorized block lists
+    - Block HTTP(S) and WebSocket traffic to specified domains
+    - (Temporarily disable all rules for a client, e.g., for a specific time window)
+    - (Implement admin authentication?)
+    - (Block traffic to associated IP addresses?)
 
 ## File Structure
 
-- **`cmd`**: For all mains
-- **`internal/data`**: For DB and API data manipulation
-- **`internal/db`**: Setting up DB
-- **`internal/pkg`**: buisness logic
-- **`internal/types`**: All structs + interfaces
-- **`tests`**: All tests
+- **`cmd`**: Contains main entry points
+- **`internal/data`**: Handles data manipulation for the database and API
+- **`internal/db`**: Database setup and configuration
+- **`internal/pkg`**: Core business logic
+- **`internal/types`**: Definitions of structs and interfaces
+- **`tests`**: Unit and integration tests
 
-## Test DB
+## Storage Considerations
 
- You can run `make db_up` to launch a psql local DB *`(localhost:5432)`* and pgAdmin *`(localhost:8888)`* to administrate it
+Choosing the optimal storage mechanism for the block lists depends on the following constraints:
+- Limited RAM, CPU, and file I/O resources
+- Persistent storage needs
 
- You can run `make seed` to seed the DB with dummy data
+The proxy needs to quickly check the domain state for each request, so fast retrieval is crucial. Given these constraints, **SQLite** appears to be the most suitable choice for its balance between performance and resource efficiency.
 
-# Storage
+Since SQLite stores data in a file, batch inserts will be preferred for bulk operations, such as importing large block lists.
 
-To choose the storage type of the list we have to take in account the limited:
+## HTTP Traffic Proxying
+### GL-iNet Example
 
-- RAM
-- CPU
-- File i/o
-- Persitant storage
+To redirect all HTTP traffic from a specific client (e.g., with IP `192.168.10.207`) to the proxy:
 
-Also we'll have to check at the domain state for each of the requests so we want this to be retrived as fast as possible
+```bash
+iptables -t nat -A PREROUTING -s 192.168.10.207 -p tcp --dport 80 -j REDIRECT --to-port 8888
+```
 
-Knowing all that SqlLite seems to be the best choice.
+## Performance Comparison
 
-Since Sql Lite is storing the data in a file we'll prefer batch inserts for repeted inserts such as the lists imports.
+| Name       | Language | Binary Size (kB) | Shared Lib (kB) | Memory Usage (Idle) (kB) | Memory Usage (Under Load) (kB) |
+|------------|----------|------------------|-----------------|--------------------------|--------------------------------|
+| **Eyeo SQLITE**   | Go       | 13365            | 4               | 168376                   | 179908                         |
+| **Eyeo BOLT**   | Go       | 13285            | 4               | 153656                   | 170188                         |
+| **tinyproxy** | C        | 130.8            | 652             | 39376                    | 40128                          |
 
-# Proxy HTTP Traffic
-## Glinet
+### HTTP Request Time Comparison
 
-Here is how to proxy all the http traffic of a client to our proxy
+| Proxy      | Normal Request Time | Proxied Request Time | Difference  |
+|------------|---------------------|----------------------|-------------|
+| **Eyeo SQLITE**   | 0.112908s            | 0.211491s            |  +0.097079s |
+| **Eyeo BOLT**   | 0.112908s            | 0.114412s            | +0.001504s  |
+| **tinyproxy** | 0.112908s            | 0.235008s            | +0.1221s  |
 
- `iptables -t nat -A PREROUTING -s 192.168.10.207 -p tcp --dport 80 -j REDIRECT --to-port 8888`
+## Next Steps for Production
 
-# Performance
+- Implement domain caching for faster lookups
+- Set up SSL certificates for HTTPS support
+- Decide whether to open a separate port for API management
+- Add support for HTTPS and WebSocket proxying
+- Implement IP blocking for domains
+- Consider transitioning from SQLite to a key-value storage like Bolt for improved performance and scalability
 
-Name|Language|Binary Size (kB)|shared lib (kB)|at rest memory data (kB)|stress test memory data (kB)
----|---|---|---|---|---
-Eyeo SQLITE|Go|13365|4|168376|179908
-Eyeo Bolt|Go|13285|4|153656|170188
-tinyproxy|C|130.8|652|39376|40128
-
-HTTP Request comparison
-
- Proxy|normal total request time|Proxied total request time|Difference
----|---|---|---
-Eyeo SQLITE|0.367237s|0.482646s|+0.115409s
-Eyeo Bolt|0.112908s|0.114412s|+0.001504s
-tinyproxy|0.112908s|0.235008s|+0.1221s
 
