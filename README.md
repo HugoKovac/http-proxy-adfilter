@@ -60,6 +60,7 @@ HTTP Request comparison
 
  Proxy|normal total request time|Proxied total request time|Difference
 ---|---|---|---
-Eyeo|0.367237s|0.482646s|0.115409s
-tinyproxy|0.366646s|0.419841s|0.053195
+Eyeo SQLITE|0.367237s|0.482646s|+0.115409s
+Eyeo Bolt|0.112908s|0.114412s|+0.001504s
+tinyproxy|0.112908s|0.235008s|+0.1221s
 

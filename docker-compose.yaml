@@ -6,10 +6,8 @@ services:
       dockerfile: docker/proxy/proxy.Dockerfile
     platform: linux/arm
     container_name: proxy
-    volumes:
-      - local_proxy:/var/lib/postgresql/data
     networks:
-      - all
+      - proxy
     deploy:
       resources:
         limits:
@@ -18,68 +16,67 @@ services:
         reservations:
           memory: 250M
 
-  # client:
-  #   container_name: time_test_client
+  client:
+    container_name: time_test_client
+    build:
+      context: .
+      dockerfile: docker/client/client.Dockerfile
+    image: curlimages/curl
+    command: tail -f /dev/null
+    networks:
+      - proxy
+
+  # client1:
+  #   container_name: client1
   #   build:
   #     context: .
   #     dockerfile: docker/client/client.Dockerfile
   #   image: curlimages/curl
-  #   command: /resquest_time.sh http://httpforever.com/
+  #   command: sh /request/request1.sh
   #   networks:
-  #     - all
+  #     - proxy
 
-  client1:
-    container_name: client1
-    build:
-      context: .
-      dockerfile: docker/client/client.Dockerfile
-    image: curlimages/curl
-    command: sh /request/request1.sh
-    networks:
-      - all
+  # client2:
+  #   container_name: client2
+  #   build:
+  #     context: .
+  #     dockerfile: docker/client/client.Dockerfile
+  #   image: curlimages/curl
+  #   command: sh /request/request2.sh
+  #   networks:
+  #     - proxy
 
-  client2:
-    container_name: client2
-    build:
-      context: .
-      dockerfile: docker/client/client.Dockerfile
-    image: curlimages/curl
-    command: sh /request/request2.sh
-    networks:
-      - all
+  # client3:
+  #   container_name: client3
+  #   build:
+  #     context: .
+  #     dockerfile: docker/client/client.Dockerfile
+  #   image: curlimages/curl
+  #   command: sh /request/request3.sh
+  #   networks:
+  #     - proxy
 
-  client3:
-    container_name: client3
-    build:
-      context: .
-      dockerfile: docker/client/client.Dockerfile
-    image: curlimages/curl
-    command: sh /request/request3.sh
-    networks:
-      - all
+  # client4:
+  #   container_name: client4
+  #   build:
+  #     context: .
+  #     dockerfile: docker/client/client.Dockerfile
+  #   image: curlimages/curl
+  #   command: sh /request/request4.sh
+  #   networks:
+  #     - proxy
 
-  client4:
-    container_name: client4
-    build:
-      context: .
-      dockerfile: docker/client/client.Dockerfile
-    image: curlimages/curl
-    command: sh /request/request4.sh
-    networks:
-      - all
-
-  client5:
-    container_name: client5
-    build:
-      context: .
-      dockerfile: docker/client/client.Dockerfile
-    image: curlimages/curl
-    command: sh /request/request5.sh
-    networks:
-      - all
-
-volumes:
-  local_proxy:
+  # client5:
+  #   container_name: client5
+  #   build:
+  #     context: .
+  #     dockerfile: docker/client/client.Dockerfile
+  #   image: curlimages/curl
+  #   command: sh /request/request5.sh
+  #   networks:
+  #     - proxy
 
 networks:
-  all:
+  proxy:
+    name: proxy
+    external: true
