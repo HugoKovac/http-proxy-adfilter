@@ -1,12 +1,12 @@
 package proxy
 
 import (
+	"crypto/tls"
 	"log"
 	"net/http"
 
-	// "gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/api"
-	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/filter"
 	"github.com/boltdb/bolt"
+	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/filter"
 )
 
 const (
@@ -22,6 +22,7 @@ func (h handler) ServeHTTP(originalWriter http.ResponseWriter, originalRequest *
 	HeaderHandler := NewHeaderHandler()
 	requestHandler := NewRequestHandler()
 
+	// if CONNECT https
 	originalRequest.URL.Scheme = "http"
 	originalRequest.URL.Host = originalRequest.Host
 	originalRequest.URL.Path = originalRequest.RequestURI
@@ -48,5 +49,24 @@ func (h handler) ServeHTTP(originalWriter http.ResponseWriter, originalRequest *
 func ListenProxy(boltdb *bolt.DB) {
 	h := handler{boltdb}
 
-	log.Fatal(http.ListenAndServe(HOST + ":" + PORT, h))
+	certFile, keyFile, err := generateSelfSignedCert()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tlsConfig := &tls.Config{
+		MinVersion:               tls.VersionTLS12,
+		PreferServerCipherSuites: true,
+		CurvePreferences:         []tls.CurveID{tls.CurveP256, tls.X25519},
+	}
+
+
+	server := &http.Server{
+		Addr:      HOST + ":" + PORT,
+		Handler:   h,
+		TLSConfig: tlsConfig,
+	}
+
+	log.Fatal(server.ListenAndServeTLS(certFile, keyFile))
 }
