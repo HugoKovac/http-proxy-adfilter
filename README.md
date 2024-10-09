@@ -63,4 +63,18 @@ iptables -t nat -A PREROUTING -s 192.168.10.207 -p tcp --dport 80 -j REDIRECT --
 - Add support for HTTPS and WebSocket proxying
 - Implement IP blocking for domains
 
+## TLS implementation
+
+To implement TLS for downstream and upstream we can use an existing proxy.
+
+Either:
+- [gomitmproxy](https://github.com/AdguardTeam/gomitmproxy) by AdGuard
+- [goproxy](https://github.com/elazarl/goproxy)
+
+gomitmproxy's binary weight 8.7M without our filering module.
+
+It seems fair, considering that we should share the same libraries (to be confirmed).
+
+We could also build the TLS part since we already have the HTTP part. But that would mean more testings to do on the TLS part, but also on the HTTP one.
+
 
