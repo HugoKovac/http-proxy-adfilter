@@ -40,6 +40,8 @@ To redirect all HTTP traffic from a specific client (e.g., with IP `192.168.10.2
 iptables -t nat -A PREROUTING -s 192.168.10.207 -p tcp --dport 80 -j REDIRECT --to-port 8888
 ```
 
+[proxy.sh](https://github.com/elazarl/goproxy/blob/master/examples/goproxy-transparent/proxy.sh)
+
 ## Performance Comparison
 
 | Name       | Language | Binary Size (kB) | Shared Lib (kB) | Memory Usage (Idle) (kB) | Memory Usage (Under Load) (kB) |
@@ -68,13 +70,30 @@ iptables -t nat -A PREROUTING -s 192.168.10.207 -p tcp --dport 80 -j REDIRECT --
 To implement TLS for downstream and upstream we can use an existing proxy.
 
 Either:
-- [gomitmproxy](https://github.com/AdguardTeam/gomitmproxy) by AdGuard
-- [goproxy](https://github.com/elazarl/goproxy)
+### [gomitmproxy](https://github.com/AdguardTeam/gomitmproxy) by AdGuard
 
-gomitmproxy's binary weight 8.7M without our filering module.
+#### GPL-3.0 license
 
-It seems fair, considering that we should share the same libraries (to be confirmed).
+Our project has to be open source and GPL-3.0
+
+#### Binary Size
+
+Without the filtering part: 8.7M
+
+
+### [goproxy](https://github.com/elazarl/goproxy)
+
+#### BSD-3-Clause license
+
+MIT project + The original project and its contributors cannot be used for commercial or advertising purposes.
+
+#### Binary Size
+
+Without the filtering part: 8.1M
+
+---
+
+The binaries size seems fair, considering that we should share the same libraries (to be confirmed).
 
 We could also build the TLS part since we already have the HTTP part. But that would mean more testings to do on the TLS part, but also on the HTTP one.
-
 
