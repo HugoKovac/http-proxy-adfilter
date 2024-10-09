@@ -133,6 +133,8 @@ func CheckClientDomain(boltdb *bolt.DB, clientMAC string, domainName string) (ok
 		clientBucket := tx.Bucket([]byte("client_categories"))
 		domainBucket := tx.Bucket([]byte("domain_categories"))
 
+		domainName = strings.Split(domainName, ":")[0]
+
 		rawClientCategories := clientBucket.Get([]byte(clientMAC))
 		rawDomainCategories := domainBucket.Get([]byte(domainName))
 
@@ -179,12 +181,6 @@ func GetCategorizedDomainList(boltdb *bolt.DB) {
 	if err != nil {
 		log.Println(err)
 		return
-	}
-	
-	for _, category := range domainLists {
-		for _, j := range category.List{
-			log.Println(j)
-		}
 	}
 
 	var wg sync.WaitGroup

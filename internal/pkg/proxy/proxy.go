@@ -2,8 +2,12 @@ package proxy
 
 import (
 	"crypto/tls"
+	"flag"
+	"io"
 	"log"
+	"net"
 	"net/http"
+	"time"
 
 	"github.com/boltdb/bolt"
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/filter"
@@ -11,62 +15,88 @@ import (
 
 const (
 	PORT = "8888"
-	HOST = "0.0.0.0"
+	HOST = "localhost"
 )
 
-type handler struct {
-	boltdb *bolt.DB
-}
-
-func (h handler) ServeHTTP(originalWriter http.ResponseWriter, originalRequest *http.Request) {
-	HeaderHandler := NewHeaderHandler()
-	requestHandler := NewRequestHandler()
-
-	// if CONNECT https
-	originalRequest.URL.Scheme = "http"
-	originalRequest.URL.Host = originalRequest.Host
-	originalRequest.URL.Path = originalRequest.RequestURI
-	//TODO: Fill and check all URL vaiable like params
-
-	err := filter.Filter(originalWriter, originalRequest, h.boltdb)
+func handleTunneling(w http.ResponseWriter, r *http.Request, boltdb *bolt.DB) {
+	log.Println("handleTunneling")
+	err := filter.Filter(w, r, boltdb)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	HeaderHandler.PreRequest(originalRequest)
-
-	proxyResp, err := requestHandler.Do(originalWriter, originalRequest)
+	dest_conn, err := net.DialTimeout("tcp", r.Host, 10*time.Second)
 	if err != nil {
-		log.Println("Requesting Error: ", err)
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
 	}
+	w.WriteHeader(http.StatusOK)
+	hijacker, ok := w.(http.Hijacker)
+	if !ok {
+		http.Error(w, "Hijacking not supported", http.StatusInternalServerError)
+		return
+	}
+	client_conn, _, err := hijacker.Hijack()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+	}
+	go transfer(dest_conn, client_conn)
+	go transfer(client_conn, dest_conn)
+}
 
-	log.Println("Response Status", proxyResp.Status)
+func transfer(destination io.WriteCloser, source io.ReadCloser) {
+	defer destination.Close()
+	defer source.Close()
+	io.Copy(destination, source)
+}
 
-	HeaderHandler.PostRequest(proxyResp, originalWriter)
+func handleHTTP(w http.ResponseWriter, req *http.Request, boltdb *bolt.DB) {
+	log.Println("handleHTTP")
+	resp, err := http.DefaultTransport.RoundTrip(req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	defer resp.Body.Close()
+	copyHeader(w.Header(), resp.Header)
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
+}
+
+func copyHeader(dst, src http.Header) {
+	for k, vv := range src {
+		for _, v := range vv {
+			dst.Add(k, v)
+		}
+	}
 }
 
 func ListenProxy(boltdb *bolt.DB) {
-	h := handler{boltdb}
-
-	certFile, keyFile, err := generateSelfSignedCert()
-
-	if err != nil {
-		log.Fatal(err)
+	var pemPath string
+	flag.StringVar(&pemPath, "pem", "server.pem", "path to pem file")
+	var keyPath string
+	flag.StringVar(&keyPath, "key", "server.key", "path to key file")
+	var proto string
+	flag.StringVar(&proto, "proto", "https", "Proxy protocol (http or https)")
+	flag.Parse()
+	if proto != "http" && proto != "https" {
+		log.Fatal("Protocol must be either http or https")
 	}
-
-	tlsConfig := &tls.Config{
-		MinVersion:               tls.VersionTLS12,
-		PreferServerCipherSuites: true,
-		CurvePreferences:         []tls.CurveID{tls.CurveP256, tls.X25519},
-	}
-
-
 	server := &http.Server{
-		Addr:      HOST + ":" + PORT,
-		Handler:   h,
-		TLSConfig: tlsConfig,
+		Addr: HOST+":"+PORT,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodConnect {
+				handleTunneling(w, r, boltdb)
+			} else {
+				handleHTTP(w, r, boltdb)
+			}
+		}),
+		// Disable HTTP/2.
+		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
-
-	log.Fatal(server.ListenAndServeTLS(certFile, keyFile))
+	if proto == "http" {
+		log.Fatal(server.ListenAndServe())
+	} else {
+		log.Fatal(server.ListenAndServeTLS(pemPath, keyPath))
+	}
 }

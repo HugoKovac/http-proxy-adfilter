@@ -3,7 +3,7 @@ DB_TYPE = SQL_LITE
 all: run
 
 run:
-	DB_TYPE=${DB_TYPE} go run cmd/filter/main.go
+	DB_TYPE=${DB_TYPE} go run cmd/filter/main.go -pem cert.pem -key key.pem
 
 filter:
 	DB_TYPE=${DB_TYPE} go run cmd/filter/main.go
@@ -27,5 +27,5 @@ db_down:
 	docker compose down	
 
 glinet:
-	GOOS=linux GOARCH=arm GOARM=7 go build -o ./bin/filter_glinet cmd/filter/main.go
+	GOOS=linux GOARCH=arm GOARM=7 go build -o ./bin/filter_glinet cmd/filter/main.go 
 	GOOS=linux GOARCH=arm GOARM=7 go build -o ./bin/migrate_glinet cmd/migration/main.go
