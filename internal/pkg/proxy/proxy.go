@@ -45,6 +45,11 @@ func transfer(destination io.WriteCloser, source io.ReadCloser) {
 	io.Copy(destination, source)
 }
 
+func buildHTTPRequest(r *http.Request) {
+	r.URL.Scheme = "http"
+	r.URL.Host = r.Host
+}
+
 func handleHTTP(w http.ResponseWriter, r *http.Request, boltdb *bolt.DB) {
 	log.Println("HTTP")
 	err := filter.Filter(w, r, boltdb)
@@ -54,6 +59,7 @@ func handleHTTP(w http.ResponseWriter, r *http.Request, boltdb *bolt.DB) {
 	}
 	resp, err := http.DefaultTransport.RoundTrip(r)
 	if err != nil {
+		log.Printf("error with HTTP Roundtrip\nRequest: %#v\n", r)
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
 	}
@@ -91,6 +97,7 @@ func createHTTPserver(boltdb *bolt.DB, host string, port string, isTLS bool) (ht
 	httpsServer = &http.Server{
 		Addr: host + ":" + port,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			buildHTTPRequest(r)
 			serverHandler(isTLS)(boltdb, w, r)
 		}),
 		// Disable HTTP/2.
