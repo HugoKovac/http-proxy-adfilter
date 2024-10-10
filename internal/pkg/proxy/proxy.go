@@ -13,13 +13,8 @@ import (
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/filter"
 )
 
-const (
-	PORT = "8888"
-	HOST = "localhost"
-)
-
 func handleTunneling(w http.ResponseWriter, r *http.Request, boltdb *bolt.DB) {
-	log.Println("handleTunneling")
+	log.Println("HTTPS")
 	err := filter.Filter(w, r, boltdb)
 	if err != nil {
 		log.Println(err)
@@ -50,9 +45,14 @@ func transfer(destination io.WriteCloser, source io.ReadCloser) {
 	io.Copy(destination, source)
 }
 
-func handleHTTP(w http.ResponseWriter, req *http.Request, boltdb *bolt.DB) {
-	log.Println("handleHTTP")
-	resp, err := http.DefaultTransport.RoundTrip(req)
+func handleHTTP(w http.ResponseWriter, r *http.Request, boltdb *bolt.DB) {
+	log.Println("HTTP")
+	err := filter.Filter(w, r, boltdb)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	resp, err := http.DefaultTransport.RoundTrip(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
@@ -71,32 +71,65 @@ func copyHeader(dst, src http.Header) {
 	}
 }
 
-func ListenProxy(boltdb *bolt.DB) {
-	var pemPath string
-	flag.StringVar(&pemPath, "pem", "server.pem", "path to pem file")
-	var keyPath string
-	flag.StringVar(&keyPath, "key", "server.key", "path to key file")
-	var proto string
-	flag.StringVar(&proto, "proto", "https", "Proxy protocol (http or https)")
-	flag.Parse()
-	if proto != "http" && proto != "https" {
-		log.Fatal("Protocol must be either http or https")
-	}
-	server := &http.Server{
-		Addr: HOST+":"+PORT,
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func serverHandler(tls bool) func(*bolt.DB, http.ResponseWriter, *http.Request) {
+	if !tls {
+		return func(boltdb *bolt.DB, w http.ResponseWriter, r *http.Request) {
+			handleHTTP(w, r, boltdb)
+		}
+	} else {
+		return func(boltdb *bolt.DB, w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodConnect {
 				handleTunneling(w, r, boltdb)
 			} else {
 				handleHTTP(w, r, boltdb)
 			}
+		}
+	}
+}
+
+func createHTTPserver(boltdb *bolt.DB, host string, port string, isTLS bool) (httpsServer *http.Server) {
+	httpsServer = &http.Server{
+		Addr: host + ":" + port,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			serverHandler(isTLS)(boltdb, w, r)
 		}),
 		// Disable HTTP/2.
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
-	if proto == "http" {
-		log.Fatal(server.ListenAndServe())
-	} else {
-		log.Fatal(server.ListenAndServeTLS(pemPath, keyPath))
+
+	return
+}
+
+func ListenProxy(boltdb *bolt.DB) {
+	var pemPath string
+	flag.StringVar(&pemPath, "pem", "cert.pem", "path to pem file")
+	var keyPath string
+	flag.StringVar(&keyPath, "key", "key.pem", "path to key file")
+	var host string
+	flag.StringVar(&host, "host", "0.0.0.0", "interface to listen on")
+	var port string
+	flag.StringVar(&port, "port", "7080", "HTTP proxy port")
+	var tlsPort string
+	flag.StringVar(&tlsPort, "sport", "7443", "HTTPS proxy port")
+	flag.Parse()
+	//todo: check input, move it and put data in struct
+
+	httpServer := createHTTPserver(boltdb, host, port, false)
+	httpsServer := createHTTPserver(boltdb, host, tlsPort, true)
+
+	httpChannel := make(chan error)
+	httpsChannel := make(chan error)
+	go func(err chan error) {
+		err <- httpServer.ListenAndServe()
+	}(httpChannel)
+	go func(err chan error, pemPath string, keyPath string) {
+		err <- httpsServer.ListenAndServeTLS(pemPath, keyPath)
+	}(httpsChannel, pemPath, keyPath)
+
+	select {
+	case httpError := <-httpChannel:
+		log.Fatal(httpError)
+	case httpsError := <-httpsChannel:
+		log.Fatal(httpsError)
 	}
 }
