@@ -20,11 +20,8 @@ migrate:
 display_db:
 	DB_TYPE=${DB_TYPE} go run cmd/display_db/main.go
 
-db_up:
-	docker compose up -d
-
-db_down:
-	docker compose down	
+docker:
+	docker compose up --no-deps --force-recreate --build
 
 glinet:
 	GOOS=linux GOARCH=arm GOARM=7 go build -ldflags="-w -s" -gcflags=all="-l -B -wb=false" -o ./bin/filter_glinet cmd/filter/main.go 

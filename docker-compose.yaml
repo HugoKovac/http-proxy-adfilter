@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: docker/proxy/proxy.Dockerfile
-    platform: linux/arm
+    # platform: linux/arm
     container_name: proxy
     networks:
       - proxy
@@ -15,16 +15,19 @@ services:
           cpus: '1'
         reservations:
           memory: 250M
+    cap_add:
+      - NET_ADMIN
 
   client:
-    container_name: time_test_client
+    container_name: client
     build:
       context: .
       dockerfile: docker/client/client.Dockerfile
     image: curlimages/curl
-    command: tail -f /dev/null
     networks:
       - proxy
+    cap_add:
+      - NET_ADMIN
 
   # client1:
   #   container_name: client1
@@ -78,5 +81,4 @@ services:
 
 networks:
   proxy:
-    name: proxy
-    external: true
+    driver: bridge
