@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -18,18 +19,21 @@ func main(){
 
 
 	boltdb := db.NewDatabase()
-	go proxy.ListenProxy(boltdb)
+	stopHTTP, stopHTTPS, errorChan := proxy.ListenProxy(boltdb)
 	go api.ListenHandler(boltdb)
 
 
 	data.GetCategorizedDomainList(boltdb)
 
-	<-sigs
-	boltdb.Close()
+	select {
+	case <- sigs:
+		boltdb.Close()
+		close(stopHTTP)
+		close(stopHTTPS)
+	case err := <- errorChan:
+		log.Println("Main Thread Intercepted: ", err)
+		boltdb.Close()
+		close(stopHTTP)
+		close(stopHTTPS)
+	}
 }
-
-/*
-	curl -v --interface en0 -x http://localhost:8080 http://www.google.com
-	curl -v --interface en0 -X POST http://localhost:8080/add_sub_list --data category=gambling
-	curl -v --interface en0 -x http://localhost:8080 http://stake.com
-*/

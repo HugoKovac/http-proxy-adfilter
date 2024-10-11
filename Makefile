@@ -3,10 +3,10 @@ DB_TYPE = SQL_LITE
 all: run
 
 run:
-	DB_TYPE=${DB_TYPE} go run cmd/filter/main.go -pem cert.pem -key key.pem
+	DB_TYPE=${DB_TYPE} go run cmd/filter/main.go
 
 filter:
-	DB_TYPE=${DB_TYPE} go run cmd/filter/main.go -pem cert.pem -key key.pem
+	DB_TYPE=${DB_TYPE} go run cmd/filter/main.go
 
 build:
 	go build -o ./bin/filter -ldflags="-w -s" -gcflags=all="-l -B -wb=false" cmd/filter/main.go 
