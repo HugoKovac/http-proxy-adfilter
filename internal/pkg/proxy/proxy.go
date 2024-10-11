@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"flag"
@@ -9,11 +8,11 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/boltdb/bolt"
 	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/filter"
+	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/certs"
 )
 
 func handleTunneling(w http.ResponseWriter, r *http.Request, boltdb *bolt.DB) {
@@ -88,19 +87,11 @@ type flags struct {
 	tlsPort string
 }
 
-type cert struct {
-	rootDER   []byte
-	rootCa    x509.Certificate
-	rootKey   *rsa.PrivateKey
-	certCache map[string]*tls.Certificate
-	mu        sync.Mutex
-}
-
 type proxy struct {
 	flags      *flags
 	Boltdb     *bolt.DB
 	httpServer *http.Server
-	cert       cert
+	cert       certs.Cert
 }
 
 func parseFlags() *flags {
@@ -148,14 +139,14 @@ func (p *proxy) runHTTP(errorChan chan error) chan bool {
 }
 
 func (p *proxy) runHTTPS(errorChan chan error) chan bool {
-	err := p.cert.generateRootCA(p.flags.pemPath, p.flags.keyPath)
+	err := p.cert.GenerateRootCA(p.flags.pemPath, p.flags.keyPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM([]byte(p.cert.rootDER))
+	caCertPool.AppendCertsFromPEM([]byte(p.cert.RootDER))
 
-	p.cert.certCache = make(map[string]*tls.Certificate)
+	p.cert.CertCache = make(map[string]*tls.Certificate)
 	p.httpServer = &http.Server{
 		Addr: p.flags.host + ":" + p.flags.tlsPort,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -167,7 +158,7 @@ func (p *proxy) runHTTPS(errorChan chan error) chan bool {
 			}
 		}),
 		TLSConfig: &tls.Config{
-			GetCertificate: getCertificateFunc(&p.cert),
+			GetCertificate: certs.GetCertificateFunc(&p.cert),
 			RootCAs:        caCertPool,
 		},
 		// Disable HTTP/2.
