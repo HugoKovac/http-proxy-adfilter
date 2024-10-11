@@ -58,18 +58,21 @@ func (c *Cert) GenerateRootCA(rootPath string, keyPath string) (err error) {
 	} else {
 		// Prepare certificate template
 		c.RootCa = x509.Certificate{
-			SerialNumber: big.NewInt(1),
+			SerialNumber: big.NewInt(2024),
 			Subject: pkix.Name{
-				CommonName: "proxy",
-				Organization: []string{"Eyeo"},
+				Organization:  []string{"Eyeo"},
+				Country:       []string{"DE"},
+				Province:      []string{"Berlin"},
+				Locality:      []string{"Berlin"},
+				StreetAddress: []string{""},
+				PostalCode:    []string{""},
 			},
 			NotBefore:             time.Now(),
-			NotAfter:              time.Now().Add(365 * 24 * time.Hour), // Valid for 1 year
-			KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+			NotAfter:              time.Now().Add(10 * 365 * 24 * time.Hour), // Valid for 10 years
+			KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+			IsCA:                  true,
 			BasicConstraintsValid: true,
 		}
-		c.RootCa.DNSNames = []string{"proxy"} // Include SANs here
 		log.Printf("Generated new certificate: %s", rootPath)
 	}
 		

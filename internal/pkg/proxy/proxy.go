@@ -16,7 +16,6 @@ import (
 )
 
 func handleTunneling(w http.ResponseWriter, r *http.Request, boltdb *bolt.DB) {
-	log.Println("HTTPS")
 	err := filter.Filter(w, r, boltdb)
 	if err != nil {
 		log.Println(err)
@@ -53,7 +52,6 @@ func buildHTTPRequest(r *http.Request) {
 }
 
 func handleHTTP(w http.ResponseWriter, r *http.Request, boltdb *bolt.DB) {
-	log.Println("HTTP")
 	err := filter.Filter(w, r, boltdb)
 	if err != nil {
 		log.Println(err)

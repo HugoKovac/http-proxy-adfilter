@@ -16,6 +16,8 @@ func (c *Cert) intermediateCa(domain string) (*tls.Certificate, error) {
 	defer func ()  {
 		if r := recover(); r != nil {
 			log.Printf("Recovered in intermediateCa for domain %s: %v", domain, r)
+		} else {
+			log.Println("Inter CA created for ", domain)
 		}
 	}()
 	cert := x509.Certificate{
