@@ -5,5 +5,10 @@ iptables -t nat -A OUTPUT -p tcp --dport 443 -j DNAT --to-destination $PROXY_IP:
 
 echo "$PROXY_IP proxy" >> /etc/hosts
 
+sleep 5
+
+curl https://www.google.com
+curl http://proxy:9000/add_sub_list --data category=gambling
+
 # Keep container running
 tail -f /dev/null

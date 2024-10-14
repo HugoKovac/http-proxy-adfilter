@@ -4,7 +4,7 @@ WORKDIR /
 
 USER root
 
-RUN apt-get update && apt-get install curl iptables -y
+RUN apt-get update && apt-get install curl net-tools iptables -y
 
 ADD ./docker/client/request /request
 ADD ./docker/client/lists /lists
