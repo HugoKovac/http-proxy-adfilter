@@ -3,7 +3,7 @@ DB_TYPE = SQL_LITE
 all: run
 
 run:
-	DB_TYPE=${DB_TYPE} go run cmd/filter/main.go
+	DB_TYPE=${DB_TYPE} go run cmd/filter/main.go -host 127.0.0.1
 
 filter:
 	DB_TYPE=${DB_TYPE} go run cmd/filter/main.go

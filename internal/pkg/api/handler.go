@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	HOST = "localhost"
+	HOST = "0.0.0.0"
 	PORT = "9000"
 )
 

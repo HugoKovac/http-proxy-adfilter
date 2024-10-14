@@ -146,7 +146,7 @@ func getMACTable() (clients []Client) {
 func GetInfoFromIP(remoteAddr string) (client Client, err error) {
 	splited := strings.Split(remoteAddr, ":")
 	if len(splited) < 2 {
-		return client, errors.New("error parsing ip")
+		return client, errors.New("error parsing ip: " + remoteAddr)
 	}
 	ip := splited[0]
 	parsedIP := net.ParseIP(ip)

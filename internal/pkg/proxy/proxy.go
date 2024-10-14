@@ -2,80 +2,15 @@ package proxy
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"flag"
-	"io"
 	"log"
 	"net"
 	"net/http"
 	"time"
 
 	"github.com/boltdb/bolt"
-	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/filter"
-	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/certs"
 )
 
-func handleTunneling(w http.ResponseWriter, r *http.Request, boltdb *bolt.DB) {
-	err := filter.Filter(w, r, boltdb)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	dest_conn, err := net.DialTimeout("tcp", r.Host, 10*time.Second)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	hijacker, ok := w.(http.Hijacker)
-	if !ok {
-		http.Error(w, "Hijacking not supported", http.StatusInternalServerError)
-		return
-	}
-	client_conn, _, err := hijacker.Hijack()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
-	}
-	go transfer(dest_conn, client_conn)
-	go transfer(client_conn, dest_conn)
-}
-
-func transfer(destination io.WriteCloser, source io.ReadCloser) {
-	defer destination.Close()
-	defer source.Close()
-	io.Copy(destination, source)
-}
-
-func buildHTTPRequest(r *http.Request) {
-	r.URL.Scheme = "http"
-	r.URL.Host = r.Host
-}
-
-func handleHTTP(w http.ResponseWriter, r *http.Request, boltdb *bolt.DB) {
-	err := filter.Filter(w, r, boltdb)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	resp, err := http.DefaultTransport.RoundTrip(r)
-	if err != nil {
-		log.Printf("error with HTTP Roundtrip\nRequest: %#v\n", r)
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
-		return
-	}
-	defer resp.Body.Close()
-	copyHeader(w.Header(), resp.Header)
-	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body)
-}
-
-func copyHeader(dst, src http.Header) {
-	for k, vv := range src {
-		for _, v := range vv {
-			dst.Add(k, v)
-		}
-	}
-}
 
 type flags struct {
 	pemPath string
@@ -89,7 +24,6 @@ type proxy struct {
 	flags      *flags
 	Boltdb     *bolt.DB
 	httpServer *http.Server
-	cert       certs.Cert
 }
 
 func parseFlags() *flags {
@@ -137,45 +71,28 @@ func (p *proxy) runHTTP(errorChan chan error) chan bool {
 }
 
 func (p *proxy) runHTTPS(errorChan chan error) chan bool {
-	err := p.cert.GenerateRootCA(p.flags.pemPath, p.flags.keyPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM([]byte(p.cert.RootDER))
-
-	p.cert.CertCache = make(map[string]*tls.Certificate)
-	p.httpServer = &http.Server{
-		Addr: p.flags.host + ":" + p.flags.tlsPort,
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			buildHTTPRequest(r)
-			if r.Method == http.MethodConnect {
-				handleTunneling(w, r, p.Boltdb)
-			} else {
-				handleHTTP(w, r, p.Boltdb)
-			}
-		}),
-		TLSConfig: &tls.Config{
-			GetCertificate: certs.GetCertificateFunc(&p.cert),
-			RootCAs:        caCertPool,
-		},
-		// Disable HTTP/2.
-		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
-	}
-
 	stopChan := make(chan bool)
+
 	go func(stopChan chan bool, errorChan chan error) {
-		err := p.httpServer.ListenAndServeTLS(p.flags.pemPath, p.flags.keyPath)
+		listener, err := net.Listen("tcp", p.flags.host+":"+p.flags.tlsPort)
 		if err != nil {
 			errorChan <- err
 			return
 		}
+		defer listener.Close()
+
 		for {
 			select {
 			case <-stopChan:
 				return
 			default:
-				time.Sleep(time.Second)
+				clientConn, err := listener.Accept()
+				if err != nil {
+					log.Printf("Error accepting connection: %v", err)
+					continue
+				}
+
+				go handleConnection(clientConn, p.Boltdb)
 			}
 		}
 	}(stopChan, errorChan)
