@@ -23,7 +23,7 @@ func main(){
 	go api.ListenHandler(boltdb)
 
 
-	data.GetCategorizedDomainList(boltdb)
+	go data.GetCategorizedDomainList(boltdb, []string{"base", "mobile-monetization", "oisd_nsfw", "override", "tif"})
 
 	select {
 	case <- sigs:

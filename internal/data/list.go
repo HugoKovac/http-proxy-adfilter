@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 	"strings"
-	"sync"
+	"time"
 
 	"github.com/boltdb/bolt"
 	macClients "gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/pkg/mac_clients"
-	"gitlab.com/eyeo/network-filtering/router-adfilter-go/internal/types"
 )
 
 func CreateMacClient(boltdb *bolt.DB, client macClients.Client) error {
@@ -29,7 +30,6 @@ func CreateMacClient(boltdb *bolt.DB, client macClients.Client) error {
 	return err
 }
 
-
 func AppendValue(b *bolt.Bucket, key string, value string) error {
 	// Check is domain already have catgories
 	pastValue := b.Get([]byte(key))
@@ -40,7 +40,6 @@ func AppendValue(b *bolt.Bucket, key string, value string) error {
 			return fmt.Errorf("format in json: %s", value)
 		}
 		// associate domain name with the name of the category
-		log.Println(key, buf)
 		return b.Put([]byte(key), buf)
 	} else {
 		var categoriesArray []string
@@ -49,7 +48,7 @@ func AppendValue(b *bolt.Bucket, key string, value string) error {
 			return fmt.Errorf("unmarshal %s's value", key)
 		}
 		for _, cat := range categoriesArray {
-			if strings.Compare(cat, value) == 0{
+			if strings.Compare(cat, value) == 0 {
 				return nil
 			}
 		}
@@ -68,7 +67,7 @@ func GetClientCategoriesList(boltdb *bolt.DB, macAddr string) (list []string, er
 		b := tx.Bucket([]byte("client_categories"))
 		value := b.Get([]byte(macAddr))
 		json.Unmarshal(value, &list)
-		
+
 		return nil
 	})
 	return list, err
@@ -88,7 +87,7 @@ func DelValue(b *bolt.Bucket, key string, value string) error {
 		}
 		i := -1
 		for key, cat := range categoriesArray {
-			if strings.Compare(cat, value) == 0{
+			if strings.Compare(cat, value) == 0 {
 				i = key
 				break
 			}
@@ -128,7 +127,7 @@ func hasCommonElement(arr1, arr2 []string) bool {
 func CheckClientDomain(boltdb *bolt.DB, clientMAC string, domainName string) (ok bool, err error) {
 	var clientCategories []string
 	var domainCategories []string
-	
+
 	err = boltdb.View(func(tx *bolt.Tx) error {
 		clientBucket := tx.Bucket([]byte("client_categories"))
 		domainBucket := tx.Bucket([]byte("domain_categories"))
@@ -157,54 +156,86 @@ func CheckClientDomain(boltdb *bolt.DB, clientMAC string, domainName string) (ok
 	return ok, err
 }
 
-func fakeFetch() (data []types.DomainList, err error) {
-	file, err := os.Open("./tests/gambling_list.json")
+func fetch(uri string) (string, error) {
+	defer func() {
+		if recover := recover(); recover != nil {
+			log.Println(recover)
+		}
+	}()
+	client := http.Client{}
+	req, err := http.NewRequest("GET", "https://easylist-downloads.adblockplus.org/network/nlf/v1/"+uri, nil)
+	req.Header.Add("Accept-Encoding", "text/plain")
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("accept text header: %v", err)
 	}
-	defer file.Close()
-
-	bytes, err := io.ReadAll(file)
+	req.SetBasicAuth("nasa_user", os.Getenv("LIST_PASS"))
+	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err		
+		return "", fmt.Errorf("do: %v", err)
+	}
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("%s got status: %s", uri, resp.Status)
+	}
+	list, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read all: %v", err)
 	}
 
-	if err := json.Unmarshal(bytes, &data); err != nil {
-		return nil, err
-	}
-
-	return data, nil
+	return string(list), nil
 }
 
-func GetCategorizedDomainList(boltdb *bolt.DB) {
-	domainLists, err := fakeFetch()
-	if err != nil {
-		log.Println(err)
-		return
-	}
+func GetCategorizedDomainList(boltdb *bolt.DB, categoryNames []string) {
+	// Threading can overload and a crash of the program
+	// var wg sync.WaitGroup
 
-	var wg sync.WaitGroup
+	const batchSize = 300
 
-	for _, category := range domainLists { // iterate in domainLists.list
-		wg.Add(1)
+	for _, category := range categoryNames {
+		// wg.Add(1)
 
-		// Create new thread for each list
-		go func(category types.DomainList) {
-			defer wg.Done()
-			boltdb.Batch(func(tx *bolt.Tx) error {
-				// Get related bucker
-				b := tx.Bucket([]byte("domain_categories"))
+		// go func(category string) {
+			// defer wg.Done()
+			now := time.Now()
+			totalCount := 0
 
-				// For all domains
-				for _, domain := range category.List {
-					AppendValue(b, domain, category.Name)
+			baseList, err := fetch(category + ".txt")
+			if err != nil {
+				log.Println("Error fetching: ", err)
+				return
+			}
+
+			baseLines := strings.Split(baseList, "\n")
+
+			for i := 0; i < len(baseLines); i += batchSize {
+				// Process lines in chunks of batchSize (max 300 lines)
+				end := i + batchSize
+				if end > len(baseLines) {
+					end = len(baseLines)
 				}
-				return nil
-			})
+				batchLines := baseLines[i:end]
 
-			log.Println("Successfully imported: ", category.Name)
-		}(category) 
+				// Process the current batch
+				count := 0
+				err := boltdb.Batch(func(tx *bolt.Tx) error {
+					b := tx.Bucket([]byte("domain_categories"))
+					for _, domain := range batchLines {
+						if _, err := url.Parse(domain); err == nil {
+							count += 1
+							AppendValue(b, domain, category)
+						}
+					}
+					return nil
+				})
+
+				if err != nil {
+					log.Printf("Error processing batch for %s: %v\n", category, err)
+				}
+
+				totalCount += count
+			}
+
+			log.Printf("%s: %d domains imported in %v\n", category, totalCount, time.Since(now))
+		// }(category)
 	}
-
-	wg.Wait()
+	// wg.Wait()
 }

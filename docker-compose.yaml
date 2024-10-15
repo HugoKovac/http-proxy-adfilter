@@ -17,6 +17,8 @@ services:
           memory: 250M
     cap_add:
       - NET_ADMIN
+    env_file:
+      - ./.env
 
   client:
     container_name: client
