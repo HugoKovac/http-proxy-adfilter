@@ -14,4 +14,5 @@ ADD ./docker/client/iptables-rules.sh /iptables-rules.sh
 ADD ./ssl/EyeoCA.pem /usr/local/share/ca-certificates/eyeo.crt
 RUN update-ca-certificates --fresh
 
-CMD "/iptables-rules.sh"
+# CMD "/iptables-rules.sh"
+CMD tail -f /dev/null

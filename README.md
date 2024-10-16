@@ -58,6 +58,12 @@ iptables -t nat -A PREROUTING -s 192.168.10.207 -p tcp --dport 80 -j REDIRECT --
 | **Eyeo BOLT**   | 0.112908s            | 0.114412s            | +0.001504s  |
 | **tinyproxy** | 0.112908s            | 0.235008s            | +0.1221s  |
 
+### HTTPS Request Time Comparison
+
+| Proxy       | Normal Request Time | Proxied Request Time | Difference  |
+|-------------|---------------------|----------------------|-------------|
+|**Eyeo BOLT**|0.044926s            |0.050671s             |+0.005745s   |
+
 ## Next Steps for Production
 
 - Implement domain caching for faster lookups
