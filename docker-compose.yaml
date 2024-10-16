@@ -1,0 +1,86 @@
+version: "3.8"
+services:
+  proxy:
+    build:
+      context: .
+      dockerfile: docker/proxy/proxy.Dockerfile
+    # platform: linux/arm
+    container_name: proxy
+    networks:
+      - proxy
+    deploy:
+      resources:
+        limits:
+          memory: 250M
+          cpus: '1'
+        reservations:
+          memory: 250M
+    cap_add:
+      - NET_ADMIN
+    env_file:
+      - ./.env
+
+  client:
+    container_name: client
+    build:
+      context: .
+      dockerfile: docker/client/client.Dockerfile
+    image: curlimages/curl
+    networks:
+      - proxy
+    cap_add:
+      - NET_ADMIN
+
+  # client1:
+  #   container_name: client1
+  #   build:
+  #     context: .
+  #     dockerfile: docker/client/client.Dockerfile
+  #   image: curlimages/curl
+  #   command: sh /request/request1.sh
+  #   networks:
+  #     - proxy
+
+  # client2:
+  #   container_name: client2
+  #   build:
+  #     context: .
+  #     dockerfile: docker/client/client.Dockerfile
+  #   image: curlimages/curl
+  #   command: sh /request/request2.sh
+  #   networks:
+  #     - proxy
+
+  # client3:
+  #   container_name: client3
+  #   build:
+  #     context: .
+  #     dockerfile: docker/client/client.Dockerfile
+  #   image: curlimages/curl
+  #   command: sh /request/request3.sh
+  #   networks:
+  #     - proxy
+
+  # client4:
+  #   container_name: client4
+  #   build:
+  #     context: .
+  #     dockerfile: docker/client/client.Dockerfile
+  #   image: curlimages/curl
+  #   command: sh /request/request4.sh
+  #   networks:
+  #     - proxy
+
+  # client5:
+  #   container_name: client5
+  #   build:
+  #     context: .
+  #     dockerfile: docker/client/client.Dockerfile
+  #   image: curlimages/curl
+  #   command: sh /request/request5.sh
+  #   networks:
+  #     - proxy
+
+networks:
+  proxy:
+    driver: bridge
